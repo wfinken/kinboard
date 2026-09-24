@@ -30,7 +30,7 @@ const enabledSet = new Set(settings.widgetOrder);
                   <input type="hidden" name="widgetId" value={id} />
                   <input type="hidden" name="direction" value="up" />
                   <button
-                    class="min-w-11 rounded-full bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:opacity-30"
+                    class="min-w-11 rounded-full bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:cursor-not-allowed disabled:bg-transparent disabled:text-fg-subtle disabled:opacity-40"
                     disabled={i === 0}
                   >
                     ↑
@@ -40,7 +40,7 @@ const enabledSet = new Set(settings.widgetOrder);
                   <input type="hidden" name="widgetId" value={id} />
                   <input type="hidden" name="direction" value="down" />
                   <button
-                    class="min-w-11 rounded-full bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:opacity-30"
+                    class="min-w-11 rounded-full bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:cursor-not-allowed disabled:bg-transparent disabled:text-fg-subtle disabled:opacity-40"
                     disabled={i === settings.widgetOrder.length - 1}
                   >
                     ↓
