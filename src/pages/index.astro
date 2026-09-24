@@ -6,39 +6,46 @@ import CalendarWidget from '../components/CalendarWidget.astro';
 import TaskList from '../components/TaskList.astro';
 import MealPlanWidget from '../components/MealPlanWidget.astro';
 import StickyNotes from '../components/StickyNotes.astro';
+import { getDashboardSettings } from '../lib/settings';
+import type { DashboardWidgetId } from '../db/schema';
 
-// Full reload every 5 minutes keeps the kiosk display fresh with zero JS
-// required — safe even for very old smart TV browsers.
-const REFRESH_SECONDS = 300;
+const settings = await getDashboardSettings();
+
+const WIDGET_COMPONENTS: Record<DashboardWidgetId, (_props: Record<string, never>) => unknown> = {
+  clock: ClockWidget,
+  weather: WeatherWidget,
+  calendar: CalendarWidget,
+  meals: MealPlanWidget,
+  chores: TaskList,
+  notes: StickyNotes,
+};
+
+// Calendar and chores read better as wide cards; everything else is happy
+// at one column on large screens. Order is otherwise fully admin-configurable.
+const WIDE_WIDGETS = new Set<DashboardWidgetId>(['calendar', 'chores']);
 ---
 
-<Layout title="Dashboard" refreshSeconds={REFRESH_SECONDS}>
+<Layout title="Dashboard" refreshSeconds={settings.refreshSeconds}>
   <div class="mx-auto max-w-7xl px-6 py-8">
-    <div class="mb-8 grid gap-6 lg:grid-cols-3">
-      <div class="flex items-center justify-center rounded-2xl bg-neutral-900 p-6 lg:col-span-1">
-        <ClockWidget />
-      </div>
-      <div class="lg:col-span-2">
-        <WeatherWidget />
-      </div>
-    </div>
-
     <div class="grid gap-6 lg:grid-cols-3">
-      <div class="lg:col-span-2">
-        <CalendarWidget />
-      </div>
-      <div>
-        <MealPlanWidget />
-      </div>
+      {
+        settings.widgetOrder.map((id) => {
+          const Widget = WIDGET_COMPONENTS[id];
+          const spanClass = WIDE_WIDGETS.has(id) ? 'lg:col-span-2' : 'lg:col-span-1';
+          return (
+            <div class={spanClass}>
+              <Widget />
+            </div>
+          );
+        })
+      }
     </div>
-
-    <div class="mt-6 grid gap-6 lg:grid-cols-3">
-      <div class="lg:col-span-2">
-        <TaskList />
-      </div>
-      <div>
-        <StickyNotes />
-      </div>
-    </div>
+    {
+      settings.widgetOrder.length === 0 && (
+        <p class="text-center text-neutral-500">
+          No widgets enabled. Configure this dashboard from /admin/layout.
+        </p>
+      )
+    }
   </div>
 </Layout>

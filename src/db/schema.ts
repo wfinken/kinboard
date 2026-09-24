@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
 import type { AdapterAccountType } from '@auth/core/adapters';
 
@@ -126,4 +127,20 @@ export const stickyNotes = sqliteTable('sticky_note', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .$defaultFn(() => new Date()),
+});
+
+export const DASHBOARD_WIDGETS = ['clock', 'weather', 'calendar', 'meals', 'chores', 'notes'] as const;
+export type DashboardWidgetId = (typeof DASHBOARD_WIDGETS)[number];
+
+// Single-household settings singleton (id is always 'default'). Multi-household
+// support in Phase 3 will key this by household id instead.
+export const dashboardSettings = sqliteTable('dashboard_settings', {
+  id: text('id').primaryKey().default('default'),
+  // Ordered list of enabled widget ids; anything from DASHBOARD_WIDGETS not
+  // present here is simply hidden.
+  widgetOrder: text('widget_order', { mode: 'json' })
+    .notNull()
+    .$type<DashboardWidgetId[]>()
+    .default(sql`'["clock","weather","calendar","meals","chores","notes"]'`),
+  refreshSeconds: integer('refresh_seconds').notNull().default(300),
 });
