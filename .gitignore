@@ -15,6 +15,11 @@ data/
 # environment variables
 .env
 .env.production
+.dev.vars
+
+# cloudflare
+.wrangler/
+worker-configuration.d.ts
 
 # logs
 npm-debug.log*

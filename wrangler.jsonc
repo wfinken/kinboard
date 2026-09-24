@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kinboard",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-09-24",
+  "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kinboard",
+      // Replace with the id printed by `npx wrangler d1 create kinboard`.
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "drizzle"
+    }
+  ],
+  // Non-secret config. AUTH_SECRET/GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET are
+  // set with `wrangler secret put` instead — see README.md.
+  "vars": {
+    "KINBOARD_LAT": "40.7128",
+    "KINBOARD_LON": "-74.0060",
+    "KINBOARD_TEMP_UNIT": "celsius"
+  }
+}
