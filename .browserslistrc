@@ -1,0 +1,10 @@
+# Deliberately broad — this app must render on old Smart TV browsers
+# (LG webOS, Samsung Tizen) whose exact engine version is unknown.
+> 0.2%
+last 10 versions
+Firefox ESR
+not dead
+iOS >= 9
+Android >= 4.4
+Chrome >= 49
+Safari >= 9

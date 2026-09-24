@@ -1,20 +1,22 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Every color here is a plain hex value on purpose — Tailwind v4's built-in
-   palette (emerald-*, red-*, neutral-*, etc.) compiles to oklch(), which
-   silently fails to parse on older Smart TV browsers (oklch() needs Chromium
-   111+/2023). Kiosk TV support is a hard requirement for this app, so we
-   never reference Tailwind's default color utilities — only these tokens.
+/* Every color here is a plain hex value on purpose. Tailwind v4's built-in
+   palette (emerald-*, red-*, neutral-*) compiles to oklch(), and its engine
+   is built on CSS features (@layer, modern :is()/:where() usage) that don't
+   exist at all on older Smart TV browsers — on one such TV this produced
+   totally unstyled HTML, not just broken colors. Tailwind v3 (used here)
+   compiles to plain selectors and hex/rgb colors with no such dependency.
+   Kiosk TV support is a hard requirement for this app, so we never
+   reference Tailwind's default color utilities — only these tokens.
 
    Dark is the intrinsic default (PRD: "better for ambient screens in living
    rooms"); [data-theme="light"] below overrides the theme-reactive ones. The
    household default comes from dashboard_settings (src/lib/settings.ts) and
    is stamped on <html> server-side; a per-device override on top of that
    lives in localStorage — see ThemeInit.astro / ThemeToggle.astro. */
-@theme {
-  --font-sans:
-    system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-
+:root {
   /* Theme-reactive: structural surfaces & text */
   --color-page: #0a0a0a;
   --color-surface: #171717;
@@ -54,7 +56,7 @@ html {
   color-scheme: dark;
 }
 
-html[data-theme="light"] {
+html[data-theme='light'] {
   color-scheme: light;
 
   --color-page: #f4f4f5;
