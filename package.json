@@ -10,10 +10,19 @@
     "astro": "astro",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "cf:types": "wrangler types",
+    "check:cloudflare": "npm run cf:types && astro check --tsconfig tsconfig.cloudflare.json",
+    "cf:dev": "astro dev --config astro.config.cloudflare.mjs",
+    "build:cloudflare": "npm run check:cloudflare && astro build --config astro.config.cloudflare.mjs",
+    "cf:deploy": "npm run build:cloudflare && wrangler deploy",
+    "cf:db:create": "wrangler d1 create kinboard",
+    "cf:db:migrate:local": "wrangler d1 migrations apply kinboard --local",
+    "cf:db:migrate:remote": "wrangler d1 migrations apply kinboard --remote"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.10",
+    "@astrojs/cloudflare": "^14.3.3",
     "@astrojs/node": "^11.1.6",
     "@auth/core": "^0.41.3",
     "@auth/drizzle-adapter": "^1.11.3",
@@ -25,7 +34,9 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260924.1",
     "drizzle-kit": "^0.31.11",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.139.0"
   }
 }

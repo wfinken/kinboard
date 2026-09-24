@@ -1,7 +1,7 @@
 {
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist", "data", "src/db/client.cloudflare.ts", "src/env.cloudflare.d.ts"],
+  "exclude": ["dist", "data", "src/db/client.ts", "src/db/migrate.ts"],
   "compilerOptions": {
     "strictNullChecks": true,
     "baseUrl": ".",

@@ -1,0 +1,10 @@
+# Copy to .dev.vars for local `wrangler dev`/`npm run cf:dev`.
+# In production these are set with `wrangler secret put <NAME>` (secrets) or
+# the "vars" block in wrangler.jsonc (non-secret values) — see README.md.
+
+AUTH_SECRET=
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+KINBOARD_LAT=40.7128
+KINBOARD_LON=-74.0060
+KINBOARD_TEMP_UNIT=celsius
