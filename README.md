@@ -92,6 +92,10 @@ your location for the weather widget (defaults to New York City).
 
 ## Cloudflare Workers deployment
 
+**Live at https://app.kinboard.xyz** (also reachable at
+https://kinboard.wfinken.workers.dev — attaching a custom domain doesn't
+disable the `workers.dev` one).
+
 An alternative to self-hosting: deploy KinBoard to Cloudflare's free tier
 (Workers + D1). No server, Docker, or Raspberry Pi to maintain — Cloudflare
 runs it. This uses [D1](https://developers.cloudflare.com/d1/) (Cloudflare's
@@ -130,12 +134,16 @@ D1 too.
 ### 4. Configure Google OAuth for your Workers domain
 
 Follow [Google OAuth setup](#google-oauth-setup) above, but set the redirect
-URI to match where this will be deployed:
+URI to match where this will be deployed. The production instance uses:
 
-- `https://<worker-name>.<your-subdomain>.workers.dev/api/auth/callback/google`
-  for the default `workers.dev` domain, or
-- `https://kinboard.xyz/api/auth/callback/google` (or whatever custom domain
-  you [attach to the Worker](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/))
+```
+https://app.kinboard.xyz/api/auth/callback/google
+```
+
+Add one redirect URI per domain the app is actually reachable at — the OAuth
+client can list more than one. If you're forking this for your own
+deployment before attaching a custom domain, use your `workers.dev` URL
+instead: `https://<worker-name>.<your-subdomain>.workers.dev/api/auth/callback/google`.
 
 ### 5. Set secrets
 
@@ -161,6 +169,21 @@ npm run cf:deploy
 
 This builds with the Cloudflare adapter and runs `wrangler deploy`. Re-run it
 for every future update.
+
+### 7. (Optional) Attach a custom domain
+
+The default `<worker-name>.<subdomain>.workers.dev` URL always keeps working.
+To serve from your own domain instead (or as well — production uses
+`app.kinboard.xyz` on top of the `workers.dev` URL), add it from the
+Cloudflare dashboard: **Workers & Pages → kinboard → Settings → Domains &
+Routes → Add → Custom Domain**. Cloudflare provisions the DNS record and TLS
+certificate automatically if the domain's zone is already on your Cloudflare
+account. See [Custom
+Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
+
+Once attached, add the new domain's redirect URI to the Google OAuth client
+(step 4) — sign-in will fail with `redirect_uri_mismatch` on any domain that
+isn't listed there.
 
 ### Local development against Cloudflare's runtime
 
