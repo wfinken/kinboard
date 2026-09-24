@@ -28,7 +28,7 @@ const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
   <form method="POST" action="/api/admin/meals" class="space-y-4">
     {
       weekDays.map((date) => (
-        <div class="rounded-lg bg-neutral-900 p-4">
+        <div class="rounded-lg bg-surface p-4">
           <div class="mb-2 font-medium">
             {new Date(date).toLocaleDateString([], {
               weekday: 'long',
@@ -39,13 +39,13 @@ const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
           <div class="grid gap-3 sm:grid-cols-3">
             {mealTypes.map((type) => (
               <div>
-                <label class="block text-xs uppercase tracking-wide text-neutral-500">
+                <label class="block text-xs uppercase tracking-wide text-fg-subtle">
                   {type}
                 </label>
                 <input
                   name={`meal_${date}_${type}`}
                   value={mealsByDate[date]?.[type] ?? ''}
-                  class="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
+                  class="w-full rounded-md border border-line bg-surface-2 px-3 py-2 text-sm"
                 />
               </div>
             ))}

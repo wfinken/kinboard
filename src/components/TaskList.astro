@@ -21,8 +21,8 @@ const byMember = members.map((member) => ({
 }));
 ---
 
-<div class="rounded-2xl bg-neutral-900 p-6" data-chore-list>
-  <h2 class="mb-4 text-lg font-semibold text-neutral-300">Chores</h2>
+<div class="rounded-2xl bg-surface p-6" data-chore-list>
+  <h2 class="mb-4 text-lg font-semibold text-fg-muted">Chores</h2>
   <div class="grid gap-5 sm:grid-cols-2">
     {
       byMember
@@ -39,10 +39,10 @@ const byMember = members.map((member) => ({
             <ul class="space-y-1.5">
               {group.items.map((chore) => (
                 <li>
-                  <label class="flex cursor-pointer items-center gap-2 text-neutral-200">
+                  <label class="flex cursor-pointer items-center gap-2 text-fg">
                     <input
                       type="checkbox"
-                      class="h-5 w-5 rounded border-neutral-600 bg-neutral-800 accent-emerald-500"
+                      class="h-5 w-5 rounded border-line bg-surface-2 accent-emerald-500"
                       checked={isDone(chore.id, chore.frequency)}
                       data-chore-id={chore.id}
                     />
@@ -57,14 +57,14 @@ const byMember = members.map((member) => ({
     {
       unassigned.length > 0 && (
         <div>
-          <div class="mb-2 font-medium text-neutral-400">General</div>
+          <div class="mb-2 font-medium text-fg-muted">General</div>
           <ul class="space-y-1.5">
             {unassigned.map((chore) => (
               <li>
-                <label class="flex cursor-pointer items-center gap-2 text-neutral-200">
+                <label class="flex cursor-pointer items-center gap-2 text-fg">
                   <input
                     type="checkbox"
-                    class="h-5 w-5 rounded border-neutral-600 bg-neutral-800 accent-emerald-500"
+                    class="h-5 w-5 rounded border-line bg-surface-2 accent-emerald-500"
                     checked={isDone(chore.id, chore.frequency)}
                     data-chore-id={chore.id}
                   />

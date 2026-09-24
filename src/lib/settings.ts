@@ -11,14 +11,18 @@ export const WIDGET_LABELS: Record<DashboardWidgetId, string> = {
   notes: 'Bulletin Board',
 };
 
+export type DashboardTheme = 'light' | 'dark';
+
 export interface DashboardSettings {
   widgetOrder: DashboardWidgetId[];
   refreshSeconds: number;
+  theme: DashboardTheme;
 }
 
 const DEFAULTS: DashboardSettings = {
   widgetOrder: [...DASHBOARD_WIDGETS],
   refreshSeconds: 300,
+  theme: 'dark',
 };
 
 export async function getDashboardSettings(): Promise<DashboardSettings> {
@@ -29,7 +33,7 @@ export async function getDashboardSettings(): Promise<DashboardSettings> {
 
   // Guard against stale ids lingering after a code change that renamed/removed a widget.
   const widgetOrder = row.widgetOrder.filter((id) => DASHBOARD_WIDGETS.includes(id));
-  return { widgetOrder, refreshSeconds: row.refreshSeconds };
+  return { widgetOrder, refreshSeconds: row.refreshSeconds, theme: row.theme };
 }
 
 export async function saveDashboardSettings(settings: DashboardSettings): Promise<void> {

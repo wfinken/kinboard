@@ -1,26 +1,34 @@
 ---
 import '../styles/global.css';
+import ThemeInit from '../components/ThemeInit.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import type { DashboardTheme } from '../lib/settings';
 
 interface Props {
   title: string;
   /** Seconds between full-page reloads. Zero-JS refresh via <meta>, works on
    *  even the oldest smart TV browsers. Omit to disable. */
   refreshSeconds?: number;
+  /** Household default from dashboard_settings; a per-device override can
+   *  still win via localStorage (see ThemeInit/ThemeToggle). */
+  theme?: DashboardTheme;
 }
 
-const { title, refreshSeconds } = Astro.props;
+const { title, refreshSeconds, theme = 'dark' } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme={theme}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <ThemeInit serverTheme={theme} />
     {refreshSeconds ? <meta http-equiv="refresh" content={String(refreshSeconds)} /> : null}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title} · KinBoard</title>
   </head>
-  <body class="min-h-screen bg-neutral-950 text-neutral-100 font-sans">
+  <body class="min-h-screen bg-page text-fg font-sans">
+    <ThemeToggle class="fixed right-4 top-4 z-50" />
     <slot />
   </body>
 </html>

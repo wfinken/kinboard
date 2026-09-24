@@ -15,6 +15,13 @@
       "when": 1790284265914,
       "tag": "0001_cold_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790286487088,
+      "tag": "0002_shallow_microchip",
+      "breakpoints": true
     }
   ]
 }

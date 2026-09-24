@@ -14,23 +14,23 @@ const enabledSet = new Set(settings.widgetOrder);
 <AdminLayout title="Dashboard Layout">
   <section class="mb-10">
     <h2 class="mb-1 text-lg font-semibold">Widget Order</h2>
-    <p class="mb-4 text-sm text-neutral-500">
+    <p class="mb-4 text-sm text-fg-subtle">
       Enabled widgets appear on the dashboard top to bottom, left column first.
     </p>
     {
       settings.widgetOrder.length === 0 ? (
-        <p class="text-neutral-500">No widgets enabled — turn some on below.</p>
+        <p class="text-fg-subtle">No widgets enabled — turn some on below.</p>
       ) : (
         <ul class="space-y-2">
           {settings.widgetOrder.map((id, i) => (
-            <li class="flex items-center justify-between rounded-lg bg-neutral-900 px-4 py-3">
+            <li class="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
               <span>{WIDGET_LABELS[id]}</span>
               <div class="flex gap-2">
                 <form method="POST" action="/api/admin/settings/widgets/move">
                   <input type="hidden" name="widgetId" value={id} />
                   <input type="hidden" name="direction" value="up" />
                   <button
-                    class="min-w-11 rounded-md bg-neutral-700 px-3 py-2 hover:bg-neutral-600 disabled:opacity-30"
+                    class="min-w-11 rounded-md bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:opacity-30"
                     disabled={i === 0}
                   >
                     ↑
@@ -40,7 +40,7 @@ const enabledSet = new Set(settings.widgetOrder);
                   <input type="hidden" name="widgetId" value={id} />
                   <input type="hidden" name="direction" value="down" />
                   <button
-                    class="min-w-11 rounded-md bg-neutral-700 px-3 py-2 hover:bg-neutral-600 disabled:opacity-30"
+                    class="min-w-11 rounded-md bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:opacity-30"
                     disabled={i === settings.widgetOrder.length - 1}
                   >
                     ↓
@@ -56,38 +56,56 @@ const enabledSet = new Set(settings.widgetOrder);
 
   <section>
     <h2 class="mb-1 text-lg font-semibold">Visible Widgets & Refresh</h2>
-    <p class="mb-4 text-sm text-neutral-500">
+    <p class="mb-4 text-sm text-fg-subtle">
       Newly-enabled widgets are added to the bottom of the order above.
     </p>
     <form method="POST" action="/api/admin/settings/widgets" class="space-y-6">
       <ul class="space-y-2">
         {
           displayOrder.map((id) => (
-            <li class="flex items-center gap-3 rounded-lg bg-neutral-900 px-4 py-3">
+            <li class="flex items-center gap-3 rounded-lg bg-surface px-4 py-3">
               <input
                 type="checkbox"
                 name={`widget_${id}`}
                 checked={enabledSet.has(id)}
-                class="h-5 w-5 rounded border-neutral-600 bg-neutral-800 accent-emerald-500"
+                class="h-5 w-5 rounded border-line bg-surface-2 accent-emerald-500"
               />
               <span>{WIDGET_LABELS[id]}</span>
             </li>
           ))
         }
       </ul>
-      <div>
-        <label class="block text-sm text-neutral-400" for="refreshSeconds">
-          Dashboard refresh interval (seconds)
-        </label>
-        <input
-          id="refreshSeconds"
-          name="refreshSeconds"
-          type="number"
-          min="30"
-          step="30"
-          value={settings.refreshSeconds}
-          class="w-32 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2"
-        />
+      <div class="flex flex-wrap gap-6">
+        <div>
+          <label class="block text-sm text-fg-muted" for="refreshSeconds">
+            Dashboard refresh interval (seconds)
+          </label>
+          <input
+            id="refreshSeconds"
+            name="refreshSeconds"
+            type="number"
+            min="30"
+            step="30"
+            value={settings.refreshSeconds}
+            class="w-32 rounded-md border border-line bg-surface-2 px-3 py-2"
+          />
+        </div>
+        <fieldset>
+          <legend class="block text-sm text-fg-muted">Household default theme</legend>
+          <div class="mt-1 flex gap-3">
+            <label class="flex items-center gap-1.5 text-sm">
+              <input type="radio" name="theme" value="dark" checked={settings.theme === 'dark'} />
+              Dark
+            </label>
+            <label class="flex items-center gap-1.5 text-sm">
+              <input type="radio" name="theme" value="light" checked={settings.theme === 'light'} />
+              Light
+            </label>
+          </div>
+          <p class="mt-1 text-xs text-fg-subtle">
+            The toggle in the corner of any screen can still override this locally.
+          </p>
+        </fieldset>
       </div>
       <button class="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
         Save

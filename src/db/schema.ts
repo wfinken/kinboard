@@ -143,4 +143,5 @@ export const dashboardSettings = sqliteTable('dashboard_settings', {
     .$type<DashboardWidgetId[]>()
     .default(sql`'["clock","weather","calendar","meals","chores","notes"]'`),
   refreshSeconds: integer('refresh_seconds').notNull().default(300),
+  theme: text('theme', { enum: ['light', 'dark'] }).notNull().default('dark'),
 });

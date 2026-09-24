@@ -10,30 +10,30 @@ const notes = await db.query.stickyNotes.findMany({ orderBy: desc(stickyNotes.cr
 <AdminLayout title="Bulletin Board">
   <form method="POST" action="/api/admin/notes" class="mb-8 flex flex-wrap items-end gap-3">
     <div class="min-w-64 flex-1">
-      <label class="block text-sm text-neutral-400" for="content">Note</label>
+      <label class="block text-sm text-fg-muted" for="content">Note</label>
       <input
         id="content"
         name="content"
         required
-        class="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2.5"
+        class="w-full rounded-md border border-line bg-surface-2 px-3 py-2.5"
       />
     </div>
     <div>
-      <label class="block text-sm text-neutral-400" for="authorName">From</label>
+      <label class="block text-sm text-fg-muted" for="authorName">From</label>
       <input
         id="authorName"
         name="authorName"
-        class="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2.5"
+        class="rounded-md border border-line bg-surface-2 px-3 py-2.5"
       />
     </div>
     <div>
-      <label class="block text-sm text-neutral-400" for="color">Color</label>
+      <label class="block text-sm text-fg-muted" for="color">Color</label>
       <input
         id="color"
         name="color"
         type="color"
         value="#facc15"
-        class="h-11 w-14 rounded-md border border-neutral-700 bg-neutral-800 p-1"
+        class="h-11 w-14 rounded-md border border-line bg-surface-2 p-1"
       />
     </div>
     <button class="rounded-md bg-emerald-600 px-4 py-2.5 font-medium hover:bg-emerald-500">
@@ -55,6 +55,6 @@ const notes = await db.query.stickyNotes.findMany({ orderBy: desc(stickyNotes.cr
         </li>
       ))
     }
-    {notes.length === 0 && <p class="text-neutral-500">No notes yet.</p>}
+    {notes.length === 0 && <p class="text-fg-subtle">No notes yet.</p>}
   </ul>
 </AdminLayout>

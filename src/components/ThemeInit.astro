@@ -1,0 +1,21 @@
+---
+import type { DashboardTheme } from '../lib/settings';
+
+interface Props {
+  /** The household default, from dashboard_settings. */
+  serverTheme: DashboardTheme;
+}
+
+const { serverTheme } = Astro.props;
+---
+
+<script is:inline define:vars={{ serverTheme }}>
+  (function () {
+    var theme = serverTheme;
+    try {
+      var stored = localStorage.getItem('kinboard-theme');
+      if (stored === 'light' || stored === 'dark') theme = stored;
+    } catch (e) {}
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>

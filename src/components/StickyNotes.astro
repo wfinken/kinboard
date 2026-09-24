@@ -9,11 +9,11 @@ const notes = await db.query.stickyNotes.findMany({
 });
 ---
 
-<div class="rounded-2xl bg-neutral-900 p-6">
-  <h2 class="mb-4 text-lg font-semibold text-neutral-300">Bulletin Board</h2>
+<div class="rounded-2xl bg-surface p-6">
+  <h2 class="mb-4 text-lg font-semibold text-fg-muted">Bulletin Board</h2>
   {
     notes.length === 0 ? (
-      <p class="text-neutral-500">No notes yet.</p>
+      <p class="text-fg-subtle">No notes yet.</p>
     ) : (
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {notes.map((note) => (

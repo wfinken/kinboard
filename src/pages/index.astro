@@ -25,7 +25,7 @@ const WIDGET_COMPONENTS: Record<DashboardWidgetId, (_props: Record<string, never
 const WIDE_WIDGETS = new Set<DashboardWidgetId>(['calendar', 'chores']);
 ---
 
-<Layout title="Dashboard" refreshSeconds={settings.refreshSeconds}>
+<Layout title="Dashboard" refreshSeconds={settings.refreshSeconds} theme={settings.theme}>
   <div class="mx-auto max-w-7xl px-6 py-8">
     <div class="grid gap-6 lg:grid-cols-3">
       {
@@ -42,7 +42,7 @@ const WIDE_WIDGETS = new Set<DashboardWidgetId>(['calendar', 'chores']);
     </div>
     {
       settings.widgetOrder.length === 0 && (
-        <p class="text-center text-neutral-500">
+        <p class="text-center text-fg-subtle">
           No widgets enabled. Configure this dashboard from /admin/layout.
         </p>
       )

@@ -1,0 +1,1 @@
+ALTER TABLE `dashboard_settings` ADD `theme` text DEFAULT 'dark' NOT NULL;

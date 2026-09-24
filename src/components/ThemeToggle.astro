@@ -1,0 +1,46 @@
+---
+interface Props {
+  class?: string;
+}
+
+const { class: className = '' } = Astro.props;
+---
+
+<button
+  type="button"
+  data-theme-toggle
+  aria-label="Toggle light and dark theme"
+  class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg hover:bg-surface-3 ${className}`}
+>
+  <span data-theme-toggle-icon aria-hidden="true">🌙</span>
+</button>
+
+<script>
+  const STORAGE_KEY = 'kinboard-theme';
+
+  function currentTheme(): 'light' | 'dark' {
+    return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  }
+
+  function syncIcons() {
+    const icon = currentTheme() === 'dark' ? '☀️' : '🌙';
+    document.querySelectorAll('[data-theme-toggle-icon]').forEach((el) => {
+      el.textContent = icon;
+    });
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = currentTheme() === 'light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = next;
+      try {
+        localStorage.setItem(STORAGE_KEY, next);
+      } catch {
+        // Private browsing etc. — the toggle still works for this page view.
+      }
+      syncIcons();
+    });
+  });
+
+  syncIcons();
+</script>

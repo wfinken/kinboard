@@ -31,25 +31,25 @@ const groups = events.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
 }, {});
 ---
 
-<div class="rounded-2xl bg-neutral-900 p-6">
-  <h2 class="mb-4 text-lg font-semibold text-neutral-300">Upcoming</h2>
+<div class="rounded-2xl bg-surface p-6">
+  <h2 class="mb-4 text-lg font-semibold text-fg-muted">Upcoming</h2>
   {
     !ownerId ? (
-      <p class="text-neutral-500">Connect a Google account in Admin → Calendars to see events.</p>
+      <p class="text-fg-subtle">Connect a Google account in Admin → Calendars to see events.</p>
     ) : Object.keys(groups).length === 0 ? (
-      <p class="text-neutral-500">Nothing on the calendar for the next 3 days.</p>
+      <p class="text-fg-subtle">Nothing on the calendar for the next 3 days.</p>
     ) : (
       <div class="space-y-5">
         {Object.entries(groups).map(([day, dayEvents]) => (
           <div>
-            <div class="mb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">
+            <div class="mb-2 text-sm font-medium uppercase tracking-wide text-fg-subtle">
               {dayLabel(day)}
             </div>
             <ul class="space-y-2">
               {dayEvents.map((event) => (
                 <li class="flex items-center gap-3">
                   <span class="h-3 w-3 shrink-0 rounded-full" style={`background-color:${event.color}`} />
-                  <span class="w-20 shrink-0 text-sm text-neutral-400">{timeLabel(event)}</span>
+                  <span class="w-20 shrink-0 text-sm text-fg-muted">{timeLabel(event)}</span>
                   <span class="text-lg">{event.title}</span>
                 </li>
               ))}

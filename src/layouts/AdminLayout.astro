@@ -1,5 +1,8 @@
 ---
 import '../styles/global.css';
+import ThemeInit from '../components/ThemeInit.astro';
+import ThemeToggle from '../components/ThemeToggle.astro';
+import { getDashboardSettings } from '../lib/settings';
 
 interface Props {
   title: string;
@@ -7,6 +10,7 @@ interface Props {
 
 const { title } = Astro.props;
 const session = Astro.locals.session;
+const { theme } = await getDashboardSettings();
 
 const navItems = [
   { href: '/admin', label: 'Overview' },
@@ -19,28 +23,30 @@ const navItems = [
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme={theme}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <ThemeInit serverTheme={theme} />
     <title>{title} · KinBoard Admin</title>
   </head>
-  <body class="min-h-screen bg-neutral-950 text-neutral-100 font-sans">
+  <body class="min-h-screen bg-page text-fg font-sans">
     <div class="mx-auto max-w-4xl px-4 pb-16">
-      <header class="border-b border-neutral-800 py-4">
+      <header class="border-b border-line-subtle py-4">
         <div class="flex items-center justify-between gap-3">
           <a href="/admin" class="shrink-0 text-lg font-semibold">
             KinBoard Admin
           </a>
           <div class="flex shrink-0 items-center gap-3">
             {session?.user && (
-              <span class="hidden max-w-40 truncate text-sm text-neutral-400 sm:inline">
+              <span class="hidden max-w-40 truncate text-sm text-fg-muted sm:inline">
                 {session.user.email}
               </span>
             )}
+            <ThemeToggle />
             <a
               href="/api/auth/signout"
-              class="rounded-md bg-neutral-800 px-3 py-2 text-sm hover:bg-neutral-700"
+              class="rounded-md bg-surface-2 px-3 py-2 text-sm hover:bg-surface-3"
             >
               Sign out
             </a>
@@ -51,7 +57,7 @@ const navItems = [
             navItems.map((item) => (
               <a
                 href={item.href}
-                class="shrink-0 rounded-md px-3 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white"
+                class="shrink-0 rounded-md px-3 py-2.5 text-sm text-fg-muted hover:bg-surface-2 hover:text-fg"
               >
                 {item.label}
               </a>
