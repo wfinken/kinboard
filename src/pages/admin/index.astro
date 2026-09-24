@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import ColorPicker from '../../components/ColorPicker.astro';
 import { db } from '../../db/client';
 import { calendars, chores, stickyNotes } from '../../db/schema';
 import { eq } from 'drizzle-orm';
@@ -74,16 +75,8 @@ const stats = [
         />
       </div>
       <div>
-        <label class="block text-sm text-fg-muted" for="color">
-          Color
-        </label>
-        <input
-          id="color"
-          name="color"
-          type="color"
-          value="#38bdf8"
-          class="h-11 w-14 rounded-lg border border-line bg-surface-2 p-1"
-        />
+        <span class="block text-sm text-fg-muted">Color</span>
+        <ColorPicker name="color" value="#38bdf8" label="Choose member color" />
       </div>
       <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
         Add Member

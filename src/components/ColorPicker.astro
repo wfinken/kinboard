@@ -1,0 +1,142 @@
+---
+interface Props {
+  /** Form field name the chosen color is submitted under. */
+  name: string;
+  /** Current/default color, as a hex string. */
+  value: string;
+  /** Accessible label for the trigger swatch (no visible text otherwise). */
+  label?: string;
+  class?: string;
+}
+
+const { name, value, label = 'Choose color', class: className = '' } = Astro.props;
+
+// A spread of mid-tone, evenly-saturated hues (Tailwind's 500 shade) plus a
+// couple of neutrals. Plain hex on purpose, like every other color in this
+// app — see global.css for why. Works as a solid fill (member avatars),
+// with a ~13% alpha overlay (calendar events), and under dark ink text
+// (sticky notes), so we avoid anything too light or too dark.
+const PRESETS = [
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#eab308',
+  '#84cc16',
+  '#22c55e',
+  '#10b981',
+  '#14b8a6',
+  '#06b6d4',
+  '#0ea5e9',
+  '#3b82f6',
+  '#6366f1',
+  '#8b5cf6',
+  '#a855f7',
+  '#d946ef',
+  '#ec4899',
+  '#f43f5e',
+  '#64748b',
+];
+---
+
+<div class={`relative inline-block ${className}`} data-color-picker>
+  <input type="hidden" name={name} value={value} data-color-value />
+  <button
+    type="button"
+    class="h-9 w-9 shrink-0 rounded-lg border border-line shadow-sm"
+    style={`background-color:${value}`}
+    data-color-trigger
+    aria-haspopup="true"
+    aria-expanded="false"
+    aria-label={label}
+  />
+  <div
+    class="absolute left-0 top-full z-20 mt-2 hidden w-52 rounded-2xl border border-line bg-surface p-3 shadow-card"
+    data-color-panel
+    role="menu"
+  >
+    <div class="grid grid-cols-6 gap-2">
+      {
+        PRESETS.map((c) => (
+          <button
+            type="button"
+            class="h-7 w-7 rounded-full ring-2 ring-transparent ring-offset-2 ring-offset-surface transition-shadow aria-pressed:ring-fg"
+            style={`background-color:${c}`}
+            data-color-swatch
+            data-color={c}
+            aria-label={`Use ${c}`}
+          />
+        ))
+      }
+    </div>
+    <label class="mt-3 flex items-center gap-2 rounded-lg border border-line-subtle px-2 py-1.5 text-xs text-fg-muted">
+      Custom
+      <input
+        type="color"
+        class="ml-auto h-6 w-12 cursor-pointer rounded border-0 bg-transparent p-0"
+        value={value}
+        data-color-native
+      />
+    </label>
+  </div>
+</div>
+
+<script>
+  function sameColor(a: string, b: string) {
+    return a.toLowerCase() === b.toLowerCase();
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-color-picker]').forEach((root) => {
+    const hidden = root.querySelector<HTMLInputElement>('[data-color-value]')!;
+    const trigger = root.querySelector<HTMLButtonElement>('[data-color-trigger]')!;
+    const panel = root.querySelector<HTMLElement>('[data-color-panel]')!;
+    const native = root.querySelector<HTMLInputElement>('[data-color-native]')!;
+    const swatches = [...root.querySelectorAll<HTMLButtonElement>('[data-color-swatch]')];
+
+    function setColor(color: string, emit = true) {
+      hidden.value = color;
+      trigger.style.backgroundColor = color;
+      native.value = color;
+      swatches.forEach((s) => {
+        s.setAttribute('aria-pressed', String(sameColor(s.dataset.color!, color)));
+      });
+      // Swatch clicks set `hidden.value` directly, which fires no DOM event
+      // of its own — dispatch one so any form-level input/change listener
+      // (e.g. the calendars page's unsaved-changes indicator) still sees it.
+      if (emit) hidden.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function openPanel() {
+      panel.classList.remove('hidden');
+      trigger.setAttribute('aria-expanded', 'true');
+    }
+
+    function closePanel() {
+      panel.classList.add('hidden');
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (panel.classList.contains('hidden')) openPanel();
+      else closePanel();
+    });
+
+    swatches.forEach((swatch) => {
+      swatch.addEventListener('click', () => {
+        setColor(swatch.dataset.color!);
+        closePanel();
+      });
+    });
+
+    native.addEventListener('input', () => setColor(native.value));
+
+    document.addEventListener('click', (e) => {
+      if (!root.contains(e.target as Node)) closePanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closePanel();
+    });
+
+    setColor(hidden.value, false);
+  });
+</script>

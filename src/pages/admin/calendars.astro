@@ -1,5 +1,6 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import ColorPicker from '../../components/ColorPicker.astro';
 import { db } from '../../db/client';
 import { calendars } from '../../db/schema';
 import { eq } from 'drizzle-orm';
@@ -54,12 +55,7 @@ const synced = Astro.url.searchParams.get('synced');
                 style={`background-color:${cal.color}`}
               />
               <span class="min-w-0 flex-1 truncate font-medium">{cal.name}</span>
-              <input
-                type="color"
-                name="color"
-                value={cal.color}
-                class="h-9 w-12 rounded-lg border border-line bg-surface-2 p-1"
-              />
+              <ColorPicker name="color" value={cal.color} label={`Choose color for ${cal.name}`} />
               <label class="flex items-center gap-2 text-sm text-fg-muted">
                 <input
                   type="checkbox"
