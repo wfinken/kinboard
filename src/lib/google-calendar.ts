@@ -45,15 +45,23 @@ export async function getGoogleAccessToken(userId: string): Promise<string | nul
 
   if (!account.refresh_token) return account.access_token;
 
-  const refreshed = await refreshAccessToken(account.refresh_token);
-  const newExpiresAt = Math.floor(Date.now() / 1000) + refreshed.expires_in;
+  // Never let a refresh failure crash a caller (e.g. the public dashboard) —
+  // callers that need to surface this to a user check for a null token
+  // themselves (see listGoogleCalendars).
+  try {
+    const refreshed = await refreshAccessToken(account.refresh_token);
+    const newExpiresAt = Math.floor(Date.now() / 1000) + refreshed.expires_in;
 
-  await db
-    .update(accounts)
-    .set({ access_token: refreshed.access_token, expires_at: newExpiresAt })
-    .where(and(eq(accounts.userId, userId), eq(accounts.provider, 'google')));
+    await db
+      .update(accounts)
+      .set({ access_token: refreshed.access_token, expires_at: newExpiresAt })
+      .where(and(eq(accounts.userId, userId), eq(accounts.provider, 'google')));
 
-  return refreshed.access_token;
+    return refreshed.access_token;
+  } catch (error) {
+    console.error('Google access token refresh failed:', error);
+    return null;
+  }
 }
 
 /** Fetches events in [timeMin, timeMax) across all enabled calendars for a user. */
@@ -83,7 +91,10 @@ export async function fetchUpcomingEvents(
         headers: { Authorization: `Bearer ${accessToken}` },
       });
 
-      if (!res.ok) return [];
+      if (!res.ok) {
+        console.error(`Google events request failed for calendar ${cal.googleCalendarId}: ${res.status}`);
+        return [];
+      }
 
       const data = (await res.json()) as {
         items?: Array<{
@@ -115,13 +126,19 @@ export async function fetchUpcomingEvents(
 /** Lists the Google Calendars available to the user's account (for admin setup). */
 export async function listGoogleCalendars(userId: string) {
   const accessToken = await getGoogleAccessToken(userId);
-  if (!accessToken) return [];
+  if (!accessToken) {
+    throw new Error('No Google access token on file for this account — try signing in again.');
+  }
 
   const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  if (!res.ok) return [];
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error(`Google calendarList request failed: ${res.status} ${body}`);
+    throw new Error(`Google Calendar API request failed (${res.status}): ${body.slice(0, 300)}`);
+  }
 
   const data = (await res.json()) as {
     items?: Array<{ id: string; summary: string; backgroundColor?: string }>;

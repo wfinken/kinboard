@@ -8,7 +8,13 @@ export const POST: APIRoute = async ({ locals, redirect }) => {
   const userId = locals.session?.user?.id;
   if (!userId) return redirect('/admin/login');
 
-  const googleCalendars = await listGoogleCalendars(userId);
+  let googleCalendars: Awaited<ReturnType<typeof listGoogleCalendars>>;
+  try {
+    googleCalendars = await listGoogleCalendars(userId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return redirect(`/admin/calendars?error=${encodeURIComponent(message)}`);
+  }
 
   for (const cal of googleCalendars) {
     const existing = await db.query.calendars.findFirst({
@@ -25,5 +31,5 @@ export const POST: APIRoute = async ({ locals, redirect }) => {
     }
   }
 
-  return redirect('/admin/calendars');
+  return redirect(`/admin/calendars?synced=${googleCalendars.length}`);
 };
