@@ -33,11 +33,10 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260924.1",
-    "autoprefixer": "^10.6.1",
+    "@tailwindcss/vite": "^4.3.3",
     "drizzle-kit": "^0.31.11",
-    "postcss": "^8.5.28",
-    "tailwindcss": "^3.4.19",
-    "typescript": "^5.9.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
     "wrangler": "^4.139.0"
   }
 }
