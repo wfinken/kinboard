@@ -1,0 +1,102 @@
+---
+import { db } from '../db/client';
+import { currentPeriodKey } from '../lib/chores';
+
+const [allChores, members] = await Promise.all([
+  db.query.chores.findMany({ orderBy: (c, { asc }) => asc(c.sortOrder) }),
+  db.query.householdMembers.findMany({ orderBy: (m, { asc }) => asc(m.sortOrder) }),
+]);
+
+const completions = await db.query.choreCompletions.findMany();
+const completedKeys = new Set(completions.map((c) => `${c.choreId}:${c.periodKey}`));
+
+function isDone(choreId: string, frequency: 'daily' | 'weekly') {
+  return completedKeys.has(`${choreId}:${currentPeriodKey(frequency)}`);
+}
+
+const unassigned = allChores.filter((c) => !c.memberId);
+const byMember = members.map((member) => ({
+  member,
+  items: allChores.filter((c) => c.memberId === member.id),
+}));
+---
+
+<div class="rounded-2xl bg-neutral-900 p-6" data-chore-list>
+  <h2 class="mb-4 text-lg font-semibold text-neutral-300">Chores</h2>
+  <div class="grid gap-5 sm:grid-cols-2">
+    {
+      byMember
+        .filter((group) => group.items.length > 0)
+        .map((group) => (
+          <div>
+            <div class="mb-2 flex items-center gap-2">
+              <span
+                class="h-2.5 w-2.5 rounded-full"
+                style={`background-color:${group.member.color}`}
+              />
+              <span class="font-medium">{group.member.name}</span>
+            </div>
+            <ul class="space-y-1.5">
+              {group.items.map((chore) => (
+                <li>
+                  <label class="flex cursor-pointer items-center gap-2 text-neutral-200">
+                    <input
+                      type="checkbox"
+                      class="h-5 w-5 rounded border-neutral-600 bg-neutral-800 accent-emerald-500"
+                      checked={isDone(chore.id, chore.frequency)}
+                      data-chore-id={chore.id}
+                    />
+                    <span>{chore.title}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+    }
+    {
+      unassigned.length > 0 && (
+        <div>
+          <div class="mb-2 font-medium text-neutral-400">General</div>
+          <ul class="space-y-1.5">
+            {unassigned.map((chore) => (
+              <li>
+                <label class="flex cursor-pointer items-center gap-2 text-neutral-200">
+                  <input
+                    type="checkbox"
+                    class="h-5 w-5 rounded border-neutral-600 bg-neutral-800 accent-emerald-500"
+                    checked={isDone(chore.id, chore.frequency)}
+                    data-chore-id={chore.id}
+                  />
+                  <span>{chore.title}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )
+    }
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLInputElement>('[data-chore-id]').forEach((checkbox) => {
+    checkbox.addEventListener('change', async () => {
+      const choreId = checkbox.dataset.choreId;
+      const completed = checkbox.checked;
+      checkbox.disabled = true;
+      try {
+        const res = await fetch(`/api/dashboard/chores/${choreId}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ completed }),
+        });
+        if (!res.ok) throw new Error('Request failed');
+      } catch {
+        checkbox.checked = !completed;
+      } finally {
+        checkbox.disabled = false;
+      }
+    });
+  });
+</script>

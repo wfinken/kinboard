@@ -1,0 +1,48 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../db/client';
+import { calendars } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const userId = Astro.locals.session?.user?.id!;
+const myCalendars = await db.query.calendars.findMany({ where: eq(calendars.userId, userId) });
+---
+
+<AdminLayout title="Calendars">
+  <form method="POST" action="/api/admin/calendars/sync" class="mb-6">
+    <button class="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
+      Sync from Google
+    </button>
+    <span class="ml-3 text-sm text-neutral-500">
+      Pulls in any calendars from your Google account not yet listed below.
+    </span>
+  </form>
+
+  {
+    myCalendars.length === 0 ? (
+      <p class="text-neutral-500">No calendars synced yet.</p>
+    ) : (
+      <ul class="space-y-3">
+        {myCalendars.map((cal) => (
+          <li class="rounded-lg bg-neutral-900 p-4">
+            <form
+              method="POST"
+              action={`/api/admin/calendars/${cal.id}`}
+              class="flex flex-wrap items-center gap-4"
+            >
+              <span class="min-w-0 flex-1 truncate font-medium">{cal.name}</span>
+              <input type="color" name="color" value={cal.color} class="h-9 w-12 rounded border border-neutral-700 bg-neutral-800 p-1" />
+              <label class="flex items-center gap-2 text-sm text-neutral-300">
+                <input type="checkbox" name="enabled" checked={cal.enabled} class="h-4 w-4" />
+                Show on dashboard
+              </label>
+              <button class="rounded-md bg-neutral-700 px-3 py-1.5 text-sm hover:bg-neutral-600">
+                Save
+              </button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</AdminLayout>

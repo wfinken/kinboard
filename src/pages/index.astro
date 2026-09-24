@@ -1,0 +1,44 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ClockWidget from '../components/ClockWidget.astro';
+import WeatherWidget from '../components/WeatherWidget.astro';
+import CalendarWidget from '../components/CalendarWidget.astro';
+import TaskList from '../components/TaskList.astro';
+import MealPlanWidget from '../components/MealPlanWidget.astro';
+import StickyNotes from '../components/StickyNotes.astro';
+
+// Full reload every 5 minutes keeps the kiosk display fresh with zero JS
+// required — safe even for very old smart TV browsers.
+const REFRESH_SECONDS = 300;
+---
+
+<Layout title="Dashboard" refreshSeconds={REFRESH_SECONDS}>
+  <div class="mx-auto max-w-7xl px-6 py-8">
+    <div class="mb-8 grid gap-6 lg:grid-cols-3">
+      <div class="flex items-center justify-center rounded-2xl bg-neutral-900 p-6 lg:col-span-1">
+        <ClockWidget />
+      </div>
+      <div class="lg:col-span-2">
+        <WeatherWidget />
+      </div>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-3">
+      <div class="lg:col-span-2">
+        <CalendarWidget />
+      </div>
+      <div>
+        <MealPlanWidget />
+      </div>
+    </div>
+
+    <div class="mt-6 grid gap-6 lg:grid-cols-3">
+      <div class="lg:col-span-2">
+        <TaskList />
+      </div>
+      <div>
+        <StickyNotes />
+      </div>
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,33 @@
+---
+import { db } from '../db/client';
+import { desc } from 'drizzle-orm';
+import { stickyNotes } from '../db/schema';
+
+const notes = await db.query.stickyNotes.findMany({
+  orderBy: desc(stickyNotes.createdAt),
+  limit: 6,
+});
+---
+
+<div class="rounded-2xl bg-neutral-900 p-6">
+  <h2 class="mb-4 text-lg font-semibold text-neutral-300">Bulletin Board</h2>
+  {
+    notes.length === 0 ? (
+      <p class="text-neutral-500">No notes yet.</p>
+    ) : (
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {notes.map((note) => (
+          <div
+            class="min-h-24 rounded-lg p-3 text-neutral-900 shadow"
+            style={`background-color:${note.color}`}
+          >
+            <p class="text-sm font-medium leading-snug">{note.content}</p>
+            {note.authorName && (
+              <p class="mt-2 text-xs text-neutral-700">— {note.authorName}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+</div>

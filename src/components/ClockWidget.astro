@@ -1,0 +1,29 @@
+---
+---
+
+<div class="text-center" data-clock>
+  <div class="text-7xl font-bold tabular-nums tracking-tight" data-clock-time>--:--</div>
+  <div class="mt-2 text-xl text-neutral-400" data-clock-date>Loading…</div>
+</div>
+
+<script>
+  const timeEl = document.querySelector<HTMLElement>('[data-clock-time]');
+  const dateEl = document.querySelector<HTMLElement>('[data-clock-date]');
+
+  function tick() {
+    const now = new Date();
+    if (timeEl) {
+      timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    if (dateEl) {
+      dateEl.textContent = now.toLocaleDateString([], {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      });
+    }
+  }
+
+  tick();
+  setInterval(tick, 1000);
+</script>

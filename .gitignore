@@ -1,0 +1,26 @@
+# build output
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# database
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# environment variables
+.env
+.env.production
+
+# logs
+npm-debug.log*
+*.log
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.DS_Store

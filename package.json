@@ -1,0 +1,31 @@
+{
+  "name": "kinboard",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@astrojs/node": "^11.1.6",
+    "@auth/core": "^0.41.3",
+    "@auth/drizzle-adapter": "^1.11.3",
+    "@libsql/client": "^0.18.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.5",
+    "dotenv": "^18.0.3",
+    "drizzle-orm": "^0.45.3",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^5.9.3"
+  }
+}

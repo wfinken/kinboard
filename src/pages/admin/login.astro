@@ -1,0 +1,29 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { Auth } from '@auth/core';
+import { authConfig } from '../../lib/auth';
+
+// Rendering the CSRF token server-side means this page needs zero client JS
+// to sign in — a plain form POST to Auth.js's own signin endpoint.
+const csrfUrl = new URL('/api/auth/csrf', Astro.url);
+const csrfResponse = await Auth(new Request(csrfUrl, { headers: Astro.request.headers }), authConfig);
+const { csrfToken } = (await csrfResponse.json()) as { csrfToken: string };
+---
+
+<Layout title="Sign in">
+  <div class="flex min-h-screen items-center justify-center px-4">
+    <div class="w-full max-w-sm rounded-2xl bg-neutral-900 p-8 text-center">
+      <h1 class="mb-2 text-2xl font-bold">KinBoard Admin</h1>
+      <p class="mb-6 text-neutral-400">Sign in with the household Google account.</p>
+      <form method="POST" action="/api/auth/signin/google">
+        <input type="hidden" name="csrfToken" value={csrfToken} />
+        <input type="hidden" name="callbackUrl" value="/admin" />
+        <button
+          class="w-full rounded-lg bg-white px-4 py-3 font-medium text-neutral-900 hover:bg-neutral-200"
+        >
+          Continue with Google
+        </button>
+      </form>
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,85 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../db/client';
+
+const [allChores, members] = await Promise.all([
+  db.query.chores.findMany({
+    orderBy: (c, { asc }) => asc(c.sortOrder),
+  }),
+  db.query.householdMembers.findMany({ orderBy: (m, { asc }) => asc(m.sortOrder) }),
+]);
+
+const memberById = new Map(members.map((m) => [m.id, m]));
+---
+
+<AdminLayout title="Chores">
+  <ul class="mb-8 space-y-2">
+    {
+      allChores.map((chore) => (
+        <li class="flex items-center justify-between rounded-lg bg-neutral-900 px-4 py-3">
+          <div>
+            <span class="font-medium">{chore.title}</span>
+            <span class="ml-2 text-sm text-neutral-500">
+              {chore.category} · {chore.frequency}
+              {chore.memberId && memberById.get(chore.memberId)
+                ? ` · ${memberById.get(chore.memberId)!.name}`
+                : ''}
+            </span>
+          </div>
+          <form method="POST" action={`/api/admin/chores/${chore.id}/delete`}>
+            <button class="text-sm text-neutral-500 hover:text-red-400">Remove</button>
+          </form>
+        </li>
+      ))
+    }
+    {allChores.length === 0 && <p class="text-neutral-500">No chores yet.</p>}
+  </ul>
+
+  <form method="POST" action="/api/admin/chores" class="flex flex-wrap items-end gap-3">
+    <div>
+      <label class="block text-sm text-neutral-400" for="title">Chore</label>
+      <input
+        id="title"
+        name="title"
+        required
+        class="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2"
+      />
+    </div>
+    <div>
+      <label class="block text-sm text-neutral-400" for="category">Category</label>
+      <input
+        id="category"
+        name="category"
+        placeholder="General"
+        class="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2"
+      />
+    </div>
+    <div>
+      <label class="block text-sm text-neutral-400" for="memberId">Assign to</label>
+      <select
+        id="memberId"
+        name="memberId"
+        class="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2"
+      >
+        <option value="">Unassigned</option>
+        {members.map((m) => (
+          <option value={m.id}>{m.name}</option>
+        ))}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm text-neutral-400" for="frequency">Resets</label>
+      <select
+        id="frequency"
+        name="frequency"
+        class="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2"
+      >
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+      </select>
+    </div>
+    <button class="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
+      Add Chore
+    </button>
+  </form>
+</AdminLayout>

@@ -1,0 +1,15 @@
+services:
+  kinboard:
+    build: .
+    ports:
+      - '4321:4321'
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: file:./data/kinboard.db
+    volumes:
+      - kinboard-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  kinboard-data:

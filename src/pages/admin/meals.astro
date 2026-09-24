@@ -1,0 +1,60 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../db/client';
+import { and, gte, lte } from 'drizzle-orm';
+import { meals } from '../../db/schema';
+
+const today = new Date();
+const weekDays = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(today);
+  d.setDate(d.getDate() + i);
+  return d.toISOString().slice(0, 10);
+});
+
+const weekMeals = await db.query.meals.findMany({
+  where: and(gte(meals.date, weekDays[0]), lte(meals.date, weekDays[6])),
+});
+
+const mealsByDate = weekMeals.reduce<Record<string, Record<string, string>>>((acc, meal) => {
+  acc[meal.date] ??= {};
+  acc[meal.date][meal.mealType] = meal.description;
+  return acc;
+}, {});
+
+const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
+---
+
+<AdminLayout title="Meal Planner">
+  <form method="POST" action="/api/admin/meals" class="space-y-4">
+    {
+      weekDays.map((date) => (
+        <div class="rounded-lg bg-neutral-900 p-4">
+          <div class="mb-2 font-medium">
+            {new Date(date).toLocaleDateString([], {
+              weekday: 'long',
+              month: 'short',
+              day: 'numeric',
+            })}
+          </div>
+          <div class="grid gap-3 sm:grid-cols-3">
+            {mealTypes.map((type) => (
+              <div>
+                <label class="block text-xs uppercase tracking-wide text-neutral-500">
+                  {type}
+                </label>
+                <input
+                  name={`meal_${date}_${type}`}
+                  value={mealsByDate[date]?.[type] ?? ''}
+                  class="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))
+    }
+    <button class="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
+      Save Week
+    </button>
+  </form>
+</AdminLayout>

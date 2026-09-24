@@ -1,0 +1,80 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../db/client';
+import { calendars, chores, stickyNotes } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const userId = Astro.locals.session?.user?.id;
+
+const [members, myCalendars, choreCount, noteCount] = await Promise.all([
+  db.query.householdMembers.findMany({ orderBy: (m, { asc }) => asc(m.sortOrder) }),
+  userId
+    ? db.query.calendars.findMany({ where: eq(calendars.userId, userId) })
+    : Promise.resolve([]),
+  db.$count(chores),
+  db.$count(stickyNotes),
+]);
+---
+
+<AdminLayout title="Overview">
+  <div class="grid gap-4 sm:grid-cols-3">
+    <div class="rounded-xl bg-neutral-900 p-4">
+      <div class="text-sm text-neutral-500">Google Calendars</div>
+      <div class="text-2xl font-bold">{myCalendars.filter((c) => c.enabled).length} enabled</div>
+    </div>
+    <div class="rounded-xl bg-neutral-900 p-4">
+      <div class="text-sm text-neutral-500">Chores</div>
+      <div class="text-2xl font-bold">{choreCount}</div>
+    </div>
+    <div class="rounded-xl bg-neutral-900 p-4">
+      <div class="text-sm text-neutral-500">Sticky Notes</div>
+      <div class="text-2xl font-bold">{noteCount}</div>
+    </div>
+  </div>
+
+  <section class="mt-10">
+    <h2 class="mb-3 text-lg font-semibold">Household Members</h2>
+    <p class="mb-4 text-sm text-neutral-500">
+      Members are used to assign chores and to color-code calendars.
+    </p>
+    <ul class="mb-4 space-y-2">
+      {
+        members.map((member) => (
+          <li class="flex items-center justify-between rounded-lg bg-neutral-900 px-4 py-2">
+            <span class="flex items-center gap-2">
+              <span class="h-3 w-3 rounded-full" style={`background-color:${member.color}`} />
+              {member.name}
+            </span>
+            <form method="POST" action={`/api/admin/members/${member.id}/delete`}>
+              <button class="text-sm text-neutral-500 hover:text-red-400">Remove</button>
+            </form>
+          </li>
+        ))
+      }
+    </ul>
+    <form method="POST" action="/api/admin/members" class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-sm text-neutral-400" for="name">Name</label>
+        <input
+          id="name"
+          name="name"
+          required
+          class="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2"
+        />
+      </div>
+      <div>
+        <label class="block text-sm text-neutral-400" for="color">Color</label>
+        <input
+          id="color"
+          name="color"
+          type="color"
+          value="#38bdf8"
+          class="h-10 w-14 rounded-md border border-neutral-700 bg-neutral-800 p-1"
+        />
+      </div>
+      <button class="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
+        Add Member
+      </button>
+    </form>
+  </section>
+</AdminLayout>

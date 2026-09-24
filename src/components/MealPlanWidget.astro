@@ -1,0 +1,62 @@
+---
+import { db } from '../db/client';
+import { meals } from '../db/schema';
+import { gte, lte, and } from 'drizzle-orm';
+
+const today = new Date();
+const todayKey = today.toISOString().slice(0, 10);
+const weekEnd = new Date(today);
+weekEnd.setDate(weekEnd.getDate() + 6);
+const weekEndKey = weekEnd.toISOString().slice(0, 10);
+
+const weekMeals = await db.query.meals.findMany({
+  where: and(gte(meals.date, todayKey), lte(meals.date, weekEndKey)),
+});
+
+const mealsByDate = weekMeals.reduce<Record<string, Record<string, string>>>((acc, meal) => {
+  acc[meal.date] ??= {};
+  acc[meal.date][meal.mealType] = meal.description;
+  return acc;
+}, {});
+
+const todayMeals = mealsByDate[todayKey] ?? {};
+
+const weekDays = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(today);
+  d.setDate(d.getDate() + i);
+  return d.toISOString().slice(0, 10);
+});
+---
+
+<div class="rounded-2xl bg-neutral-900 p-6">
+  <h2 class="mb-4 text-lg font-semibold text-neutral-300">Meals Today</h2>
+  <div class="grid grid-cols-3 gap-3 text-center">
+    {
+      (['breakfast', 'lunch', 'dinner'] as const).map((type) => (
+        <div class="rounded-lg bg-neutral-800/60 p-3">
+          <div class="text-xs uppercase tracking-wide text-neutral-500">{type}</div>
+          <div class="mt-1 text-sm">{todayMeals[type] || '—'}</div>
+        </div>
+      ))
+    }
+  </div>
+  <h3 class="mt-5 mb-2 text-sm font-medium uppercase tracking-wide text-neutral-500">
+    Week Ahead
+  </h3>
+  <ul class="space-y-1 text-sm text-neutral-400">
+    {
+      weekDays.slice(1).map((date) => {
+        const dayMeals = mealsByDate[date];
+        const summary = dayMeals
+          ? Object.values(dayMeals).filter(Boolean).join(' · ')
+          : 'Not planned';
+        return (
+          <li class="flex justify-between gap-4">
+            <span>{new Date(date).toLocaleDateString([], { weekday: 'short' })}</span>
+            <span class="truncate text-neutral-300">{summary}</span>
+          </li>
+        );
+      })
+    }
+  </ul>
+</div>

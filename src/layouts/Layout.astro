@@ -1,0 +1,26 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  /** Seconds between full-page reloads. Zero-JS refresh via <meta>, works on
+   *  even the oldest smart TV browsers. Omit to disable. */
+  refreshSeconds?: number;
+}
+
+const { title, refreshSeconds } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    {refreshSeconds ? <meta http-equiv="refresh" content={String(refreshSeconds)} /> : null}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} · KinBoard</title>
+  </head>
+  <body class="min-h-screen bg-neutral-950 text-neutral-100 font-sans">
+    <slot />
+  </body>
+</html>

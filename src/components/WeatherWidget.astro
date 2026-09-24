@@ -1,0 +1,41 @@
+---
+import { fetchWeather, describeWeatherCode } from '../lib/weather';
+
+const weather = await fetchWeather();
+const unit = process.env.KINBOARD_TEMP_UNIT === 'fahrenheit' ? '°F' : '°C';
+---
+
+<div class="rounded-2xl bg-neutral-900 p-6">
+  {
+    weather ? (
+      <>
+        <div class="flex items-center gap-4">
+          <span class="text-5xl">{describeWeatherCode(weather.currentCode).icon}</span>
+          <div>
+            <div class="text-4xl font-bold">
+              {weather.currentTemp}
+              {unit}
+            </div>
+            <div class="text-neutral-400">{describeWeatherCode(weather.currentCode).label}</div>
+          </div>
+        </div>
+        <div class="mt-4 flex justify-between gap-2 border-t border-neutral-800 pt-4">
+          {weather.forecast.map((day) => (
+            <div class="text-center">
+              <div class="text-sm text-neutral-400">
+                {new Date(day.date).toLocaleDateString([], { weekday: 'short' })}
+              </div>
+              <div class="text-2xl">{describeWeatherCode(day.code).icon}</div>
+              <div class="text-sm">
+                <span class="font-semibold">{day.high}°</span>{' '}
+                <span class="text-neutral-500">{day.low}°</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </>
+    ) : (
+      <p class="text-neutral-500">Weather unavailable</p>
+    )
+  }
+</div>

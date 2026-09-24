@@ -1,0 +1,60 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../db/client';
+import { desc } from 'drizzle-orm';
+import { stickyNotes } from '../../db/schema';
+
+const notes = await db.query.stickyNotes.findMany({ orderBy: desc(stickyNotes.createdAt) });
+---
+
+<AdminLayout title="Bulletin Board">
+  <ul class="mb-8 grid gap-3 sm:grid-cols-2">
+    {
+      notes.map((note) => (
+        <li class="rounded-lg p-4 text-neutral-900" style={`background-color:${note.color}`}>
+          <p class="mb-2 font-medium">{note.content}</p>
+          <div class="flex items-center justify-between text-sm text-neutral-700">
+            <span>{note.authorName ?? ''}</span>
+            <form method="POST" action={`/api/admin/notes/${note.id}/delete`}>
+              <button class="hover:text-red-700">Remove</button>
+            </form>
+          </div>
+        </li>
+      ))
+    }
+    {notes.length === 0 && <p class="text-neutral-500">No notes yet.</p>}
+  </ul>
+
+  <form method="POST" action="/api/admin/notes" class="flex flex-wrap items-end gap-3">
+    <div class="min-w-64 flex-1">
+      <label class="block text-sm text-neutral-400" for="content">Note</label>
+      <input
+        id="content"
+        name="content"
+        required
+        class="w-full rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2"
+      />
+    </div>
+    <div>
+      <label class="block text-sm text-neutral-400" for="authorName">From</label>
+      <input
+        id="authorName"
+        name="authorName"
+        class="rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2"
+      />
+    </div>
+    <div>
+      <label class="block text-sm text-neutral-400" for="color">Color</label>
+      <input
+        id="color"
+        name="color"
+        type="color"
+        value="#facc15"
+        class="h-10 w-14 rounded-md border border-neutral-700 bg-neutral-800 p-1"
+      />
+    </div>
+    <button class="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
+      Add Note
+    </button>
+  </form>
+</AdminLayout>
