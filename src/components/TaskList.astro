@@ -32,7 +32,7 @@ const byMember = members
       byMember.map((group) => {
         const doneCount = group.items.filter((c) => isDone(c.id, c.frequency)).length;
         return (
-          <div class="rounded-2xl bg-surface-2/60 p-3">
+          <div class="rounded-2xl bg-surface-2/60 p-3 ring-1 ring-line-subtle" data-chore-group>
             <div class="mb-2 flex items-center gap-2">
               <span
                 class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
@@ -41,7 +41,7 @@ const byMember = members
                 {group.member.name.slice(0, 1).toUpperCase()}
               </span>
               <span class="font-medium">{group.member.name}</span>
-              <span class="ml-auto shrink-0 text-xs text-fg-subtle">
+              <span class="ml-auto shrink-0 text-xs text-fg-subtle" data-chore-count>
                 {doneCount}/{group.items.length}
               </span>
             </div>
@@ -68,7 +68,7 @@ const byMember = members
     }
     {
       unassigned.length > 0 && (
-        <div class="rounded-2xl bg-surface-2/60 p-3">
+        <div class="rounded-2xl bg-surface-2/60 p-3 ring-1 ring-line-subtle">
           <div class="mb-2 font-medium text-fg-muted">General</div>
           <ul class="space-y-0.5">
             {unassigned.map((chore) => (
@@ -101,14 +101,24 @@ const byMember = members
 </style>
 
 <script>
+  function updateGroupCount(group: HTMLElement) {
+    const counter = group.querySelector<HTMLElement>('[data-chore-count]');
+    if (!counter) return;
+    const boxes = group.querySelectorAll<HTMLInputElement>('[data-chore-id]');
+    const done = [...boxes].filter((b) => b.checked).length;
+    counter.textContent = `${done}/${boxes.length}`;
+  }
+
   document.querySelectorAll<HTMLInputElement>('[data-chore-id]').forEach((checkbox) => {
     const titleEl = checkbox.closest('label')?.querySelector<HTMLElement>('.chore-title');
+    const group = checkbox.closest<HTMLElement>('[data-chore-group]');
 
     checkbox.addEventListener('change', async () => {
       const choreId = checkbox.dataset.choreId;
       const completed = checkbox.checked;
       checkbox.disabled = true;
       titleEl?.setAttribute('data-done', String(completed));
+      if (group) updateGroupCount(group);
       try {
         const res = await fetch(`/api/dashboard/chores/${choreId}/toggle`, {
           method: 'POST',
@@ -119,6 +129,7 @@ const byMember = members
       } catch {
         checkbox.checked = !completed;
         titleEl?.setAttribute('data-done', String(!completed));
+        if (group) updateGroupCount(group);
       } finally {
         checkbox.disabled = false;
       }

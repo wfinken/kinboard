@@ -17,8 +17,8 @@ const [members, myCalendars, choreCount, noteCount] = await Promise.all([
 
 const stats = [
   { icon: '📅', label: 'Calendars enabled', value: myCalendars.filter((c) => c.enabled).length },
-  { icon: '✅', label: 'Chores', value: choreCount },
-  { icon: '📌', label: 'Sticky notes', value: noteCount },
+  { icon: '✅', label: choreCount === 1 ? 'Chore' : 'Chores', value: choreCount },
+  { icon: '📌', label: noteCount === 1 ? 'Sticky note' : 'Sticky notes', value: noteCount },
 ];
 ---
 

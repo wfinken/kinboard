@@ -69,7 +69,11 @@ const synced = Astro.url.searchParams.get('synced');
                 />
                 Show on dashboard
               </label>
-              <button class="rounded-full bg-surface-3 px-4 py-1.5 text-sm font-medium hover:bg-surface-3-hover">
+              <button
+                type="submit"
+                data-save-button
+                class="rounded-full px-4 py-1.5 text-sm font-medium text-fg-subtle transition-colors"
+              >
                 Save
               </button>
             </form>
@@ -79,3 +83,35 @@ const synced = Astro.url.searchParams.get('synced');
     )
   }
 </AdminLayout>
+
+<style>
+  /* Muted until the form actually has unsaved changes, so it's obvious
+     whether a click will do anything. */
+  [data-save-button] {
+    background-color: var(--color-surface-3);
+  }
+  [data-save-button][data-dirty='true'] {
+    background-color: var(--color-accent);
+    color: white;
+  }
+  [data-save-button]:hover {
+    background-color: var(--color-surface-3-hover);
+  }
+  [data-save-button][data-dirty='true']:hover {
+    background-color: var(--color-accent-hover);
+  }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLFormElement>('form').forEach((form) => {
+    const saveButton = form.querySelector<HTMLButtonElement>('[data-save-button]');
+    if (!saveButton) return;
+    saveButton.dataset.dirty = 'false';
+    form.addEventListener('input', () => {
+      saveButton.dataset.dirty = 'true';
+    });
+    form.addEventListener('change', () => {
+      saveButton.dataset.dirty = 'true';
+    });
+  });
+</script>

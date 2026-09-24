@@ -28,7 +28,16 @@ const { title, refreshSeconds, theme = 'dark' } = Astro.props;
     <title>{title} · KinBoard</title>
   </head>
   <body class="min-h-screen bg-page text-fg font-sans">
-    <ThemeToggle class="fixed right-4 top-4 z-50" />
+    <div class="fixed right-4 top-4 z-50 flex items-center gap-2">
+      <a
+        href="/admin"
+        aria-label="Open admin settings"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg hover:bg-surface-3"
+      >
+        <span aria-hidden="true">⚙️</span>
+      </a>
+      <ThemeToggle />
+    </div>
     <slot />
   </body>
 </html>
