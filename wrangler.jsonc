@@ -15,8 +15,7 @@
     {
       "binding": "DB",
       "database_name": "kinboard",
-      // Replace with the id printed by `npx wrangler d1 create kinboard`.
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "database_id": "c74c0c37-b710-4e58-a131-20361c3d5cc5",
       "migrations_dir": "drizzle"
     }
   ],
