@@ -14,7 +14,7 @@ const synced = Astro.url.searchParams.get('synced');
 <AdminLayout title="Calendars">
   {
     error && (
-      <div class="mb-6 rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-400">
+      <div class="mb-6 rounded-2xl border border-danger bg-danger-soft p-4 text-sm text-danger">
         <p class="font-medium">Sync failed</p>
         <p class="mt-1 break-words">{error}</p>
       </div>
@@ -22,40 +22,54 @@ const synced = Astro.url.searchParams.get('synced');
   }
   {
     synced != null && !error && (
-      <div class="mb-6 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-400">
+      <div class="mb-6 rounded-2xl border border-success bg-success-soft p-4 text-sm text-success">
         Synced — found {synced} calendar{synced === '1' ? '' : 's'} in your Google account.
       </div>
     )
   }
 
-  <form method="POST" action="/api/admin/calendars/sync" class="mb-6">
-    <button class="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
+  <form method="POST" action="/api/admin/calendars/sync" class="mb-6 flex flex-wrap items-center gap-3">
+    <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
       Sync from Google
     </button>
-    <span class="ml-3 text-sm text-fg-subtle">
+    <span class="text-sm text-fg-subtle">
       Pulls in any calendars from your Google account not yet listed below.
     </span>
   </form>
 
   {
     myCalendars.length === 0 ? (
-      <p class="text-fg-subtle">No calendars synced yet.</p>
+      <p class="rounded-2xl bg-surface p-5 text-fg-subtle shadow-card">No calendars synced yet.</p>
     ) : (
       <ul class="space-y-3">
         {myCalendars.map((cal) => (
-          <li class="rounded-lg bg-surface p-4">
+          <li class="rounded-2xl bg-surface p-4 shadow-card">
             <form
               method="POST"
               action={`/api/admin/calendars/${cal.id}`}
               class="flex flex-wrap items-center gap-4"
             >
+              <span
+                class="h-3 w-3 shrink-0 rounded-full"
+                style={`background-color:${cal.color}`}
+              />
               <span class="min-w-0 flex-1 truncate font-medium">{cal.name}</span>
-              <input type="color" name="color" value={cal.color} class="h-9 w-12 rounded border border-line bg-surface-2 p-1" />
+              <input
+                type="color"
+                name="color"
+                value={cal.color}
+                class="h-9 w-12 rounded-lg border border-line bg-surface-2 p-1"
+              />
               <label class="flex items-center gap-2 text-sm text-fg-muted">
-                <input type="checkbox" name="enabled" checked={cal.enabled} class="h-4 w-4" />
+                <input
+                  type="checkbox"
+                  name="enabled"
+                  checked={cal.enabled}
+                  class="h-4 w-4 accent-success"
+                />
                 Show on dashboard
               </label>
-              <button class="rounded-md bg-surface-3 px-3 py-1.5 text-sm hover:bg-surface-3-hover">
+              <button class="rounded-full bg-surface-3 px-4 py-1.5 text-sm font-medium hover:bg-surface-3-hover">
                 Save
               </button>
             </form>

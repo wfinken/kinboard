@@ -12,7 +12,7 @@ const enabledSet = new Set(settings.widgetOrder);
 ---
 
 <AdminLayout title="Dashboard Layout">
-  <section class="mb-10">
+  <section class="mb-6 rounded-2xl bg-surface p-5 shadow-card sm:p-6">
     <h2 class="mb-1 text-lg font-semibold">Widget Order</h2>
     <p class="mb-4 text-sm text-fg-subtle">
       Enabled widgets appear on the dashboard top to bottom, left column first.
@@ -23,14 +23,14 @@ const enabledSet = new Set(settings.widgetOrder);
       ) : (
         <ul class="space-y-2">
           {settings.widgetOrder.map((id, i) => (
-            <li class="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
-              <span>{WIDGET_LABELS[id]}</span>
+            <li class="flex items-center justify-between rounded-xl bg-surface-2/60 px-4 py-3">
+              <span class="font-medium">{WIDGET_LABELS[id]}</span>
               <div class="flex gap-2">
                 <form method="POST" action="/api/admin/settings/widgets/move">
                   <input type="hidden" name="widgetId" value={id} />
                   <input type="hidden" name="direction" value="up" />
                   <button
-                    class="min-w-11 rounded-md bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:opacity-30"
+                    class="min-w-11 rounded-full bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:opacity-30"
                     disabled={i === 0}
                   >
                     ↑
@@ -40,7 +40,7 @@ const enabledSet = new Set(settings.widgetOrder);
                   <input type="hidden" name="widgetId" value={id} />
                   <input type="hidden" name="direction" value="down" />
                   <button
-                    class="min-w-11 rounded-md bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:opacity-30"
+                    class="min-w-11 rounded-full bg-surface-3 px-3 py-2 hover:bg-surface-3-hover disabled:opacity-30"
                     disabled={i === settings.widgetOrder.length - 1}
                   >
                     ↓
@@ -54,7 +54,7 @@ const enabledSet = new Set(settings.widgetOrder);
     }
   </section>
 
-  <section>
+  <section class="rounded-2xl bg-surface p-5 shadow-card sm:p-6">
     <h2 class="mb-1 text-lg font-semibold">Visible Widgets & Refresh</h2>
     <p class="mb-4 text-sm text-fg-subtle">
       Newly-enabled widgets are added to the bottom of the order above.
@@ -63,12 +63,12 @@ const enabledSet = new Set(settings.widgetOrder);
       <ul class="space-y-2">
         {
           displayOrder.map((id) => (
-            <li class="flex items-center gap-3 rounded-lg bg-surface px-4 py-3">
+            <li class="flex items-center gap-3 rounded-xl bg-surface-2/60 px-4 py-3">
               <input
                 type="checkbox"
                 name={`widget_${id}`}
                 checked={enabledSet.has(id)}
-                class="h-5 w-5 rounded border-line bg-surface-2 accent-emerald-500"
+                class="h-5 w-5 rounded border-line bg-surface accent-success"
               />
               <span>{WIDGET_LABELS[id]}</span>
             </li>
@@ -87,7 +87,7 @@ const enabledSet = new Set(settings.widgetOrder);
             min="30"
             step="30"
             value={settings.refreshSeconds}
-            class="w-32 rounded-md border border-line bg-surface-2 px-3 py-2"
+            class="w-32 rounded-lg border border-line bg-surface-2 px-3 py-2"
           />
         </div>
         <fieldset>
@@ -107,7 +107,7 @@ const enabledSet = new Set(settings.widgetOrder);
           </p>
         </fieldset>
       </div>
-      <button class="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
+      <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
         Save
       </button>
     </form>

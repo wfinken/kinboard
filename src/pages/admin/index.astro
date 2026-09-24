@@ -14,65 +14,78 @@ const [members, myCalendars, choreCount, noteCount] = await Promise.all([
   db.$count(chores),
   db.$count(stickyNotes),
 ]);
+
+const stats = [
+  { icon: '📅', label: 'Calendars enabled', value: myCalendars.filter((c) => c.enabled).length },
+  { icon: '✅', label: 'Chores', value: choreCount },
+  { icon: '📌', label: 'Sticky notes', value: noteCount },
+];
 ---
 
 <AdminLayout title="Overview">
   <div class="grid gap-4 sm:grid-cols-3">
-    <div class="rounded-xl bg-surface p-4">
-      <div class="text-sm text-fg-subtle">Google Calendars</div>
-      <div class="text-2xl font-bold">{myCalendars.filter((c) => c.enabled).length} enabled</div>
-    </div>
-    <div class="rounded-xl bg-surface p-4">
-      <div class="text-sm text-fg-subtle">Chores</div>
-      <div class="text-2xl font-bold">{choreCount}</div>
-    </div>
-    <div class="rounded-xl bg-surface p-4">
-      <div class="text-sm text-fg-subtle">Sticky Notes</div>
-      <div class="text-2xl font-bold">{noteCount}</div>
-    </div>
+    {
+      stats.map((stat) => (
+        <div class="rounded-2xl bg-surface p-5 shadow-card">
+          <div class="text-2xl">{stat.icon}</div>
+          <div class="mt-2 text-3xl font-bold">{stat.value}</div>
+          <div class="text-sm text-fg-subtle">{stat.label}</div>
+        </div>
+      ))
+    }
   </div>
 
-  <section class="mt-10">
-    <h2 class="mb-3 text-lg font-semibold">Household Members</h2>
+  <section class="mt-8 rounded-2xl bg-surface p-5 shadow-card sm:p-6">
+    <h2 class="mb-1 text-lg font-semibold">Household Members</h2>
     <p class="mb-4 text-sm text-fg-subtle">
       Members are used to assign chores and to color-code calendars.
     </p>
-    <ul class="mb-4 space-y-2">
+    <ul class="mb-5 space-y-2">
       {
         members.map((member) => (
-          <li class="flex items-center justify-between rounded-lg bg-surface px-4 py-2">
-            <span class="flex items-center gap-2">
-              <span class="h-3 w-3 rounded-full" style={`background-color:${member.color}`} />
-              {member.name}
+          <li class="flex items-center justify-between rounded-xl bg-surface-2/60 px-4 py-2.5">
+            <span class="flex items-center gap-2.5">
+              <span
+                class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
+                style={`background-color:${member.color}`}
+              >
+                {member.name.slice(0, 1).toUpperCase()}
+              </span>
+              <span class="font-medium">{member.name}</span>
             </span>
             <form method="POST" action={`/api/admin/members/${member.id}/delete`}>
-              <button class="text-sm text-fg-subtle hover:text-red-400">Remove</button>
+              <button class="text-sm text-fg-subtle hover:text-danger">Remove</button>
             </form>
           </li>
         ))
       }
+      {members.length === 0 && <p class="text-sm text-fg-subtle">No household members yet.</p>}
     </ul>
     <form method="POST" action="/api/admin/members" class="flex flex-wrap items-end gap-3">
       <div>
-        <label class="block text-sm text-fg-muted" for="name">Name</label>
+        <label class="block text-sm text-fg-muted" for="name">
+          Name
+        </label>
         <input
           id="name"
           name="name"
           required
-          class="rounded-md border border-line bg-surface-2 px-3 py-2.5"
+          class="rounded-lg border border-line bg-surface-2 px-3 py-2.5"
         />
       </div>
       <div>
-        <label class="block text-sm text-fg-muted" for="color">Color</label>
+        <label class="block text-sm text-fg-muted" for="color">
+          Color
+        </label>
         <input
           id="color"
           name="color"
           type="color"
           value="#38bdf8"
-          class="h-11 w-14 rounded-md border border-line bg-surface-2 p-1"
+          class="h-11 w-14 rounded-lg border border-line bg-surface-2 p-1"
         />
       </div>
-      <button class="rounded-md bg-emerald-600 px-4 py-2.5 font-medium hover:bg-emerald-500">
+      <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
         Add Member
       </button>
     </form>

@@ -13,31 +13,41 @@ const memberById = new Map(members.map((m) => [m.id, m]));
 ---
 
 <AdminLayout title="Chores">
-  <form method="POST" action="/api/admin/chores" class="mb-8 flex flex-wrap items-end gap-3">
+  <form
+    method="POST"
+    action="/api/admin/chores"
+    class="mb-6 flex flex-wrap items-end gap-3 rounded-2xl bg-surface p-5 shadow-card"
+  >
     <div>
-      <label class="block text-sm text-fg-muted" for="title">Chore</label>
+      <label class="block text-sm text-fg-muted" for="title">
+        Chore
+      </label>
       <input
         id="title"
         name="title"
         required
-        class="rounded-md border border-line bg-surface-2 px-3 py-2.5"
+        class="rounded-lg border border-line bg-surface-2 px-3 py-2.5"
       />
     </div>
     <div>
-      <label class="block text-sm text-fg-muted" for="category">Category</label>
+      <label class="block text-sm text-fg-muted" for="category">
+        Category
+      </label>
       <input
         id="category"
         name="category"
         placeholder="General"
-        class="rounded-md border border-line bg-surface-2 px-3 py-2.5"
+        class="rounded-lg border border-line bg-surface-2 px-3 py-2.5"
       />
     </div>
     <div>
-      <label class="block text-sm text-fg-muted" for="memberId">Assign to</label>
+      <label class="block text-sm text-fg-muted" for="memberId">
+        Assign to
+      </label>
       <select
         id="memberId"
         name="memberId"
-        class="rounded-md border border-line bg-surface-2 px-3 py-2.5"
+        class="rounded-lg border border-line bg-surface-2 px-3 py-2.5"
       >
         <option value="">Unassigned</option>
         {members.map((m) => (
@@ -46,40 +56,56 @@ const memberById = new Map(members.map((m) => [m.id, m]));
       </select>
     </div>
     <div>
-      <label class="block text-sm text-fg-muted" for="frequency">Resets</label>
+      <label class="block text-sm text-fg-muted" for="frequency">
+        Resets
+      </label>
       <select
         id="frequency"
         name="frequency"
-        class="rounded-md border border-line bg-surface-2 px-3 py-2.5"
+        class="rounded-lg border border-line bg-surface-2 px-3 py-2.5"
       >
         <option value="daily">Daily</option>
         <option value="weekly">Weekly</option>
       </select>
     </div>
-    <button class="rounded-md bg-emerald-600 px-4 py-2.5 font-medium hover:bg-emerald-500">
+    <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
       Add Chore
     </button>
   </form>
 
   <ul class="space-y-2">
     {
-      allChores.map((chore) => (
-        <li class="flex items-center justify-between rounded-lg bg-surface px-4 py-3">
-          <div>
-            <span class="font-medium">{chore.title}</span>
-            <span class="ml-2 text-sm text-fg-subtle">
-              {chore.category} · {chore.frequency}
-              {chore.memberId && memberById.get(chore.memberId)
-                ? ` · ${memberById.get(chore.memberId)!.name}`
-                : ''}
-            </span>
-          </div>
-          <form method="POST" action={`/api/admin/chores/${chore.id}/delete`}>
-            <button class="text-sm text-fg-subtle hover:text-red-400">Remove</button>
-          </form>
-        </li>
-      ))
+      allChores.map((chore) => {
+        const member = chore.memberId ? memberById.get(chore.memberId) : undefined;
+        return (
+          <li class="flex items-center justify-between gap-3 rounded-2xl bg-surface p-4 shadow-card">
+            <div class="flex min-w-0 items-center gap-3">
+              {member ? (
+                <span
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                  style={`background-color:${member.color}`}
+                >
+                  {member.name.slice(0, 1).toUpperCase()}
+                </span>
+              ) : (
+                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-2 text-xs">
+                  —
+                </span>
+              )}
+              <div class="min-w-0">
+                <div class="truncate font-medium">{chore.title}</div>
+                <div class="text-sm text-fg-subtle">
+                  {chore.category} · {chore.frequency}
+                </div>
+              </div>
+            </div>
+            <form method="POST" action={`/api/admin/chores/${chore.id}/delete`}>
+              <button class="shrink-0 text-sm text-fg-subtle hover:text-danger">Remove</button>
+            </form>
+          </li>
+        );
+      })
     }
-    {allChores.length === 0 && <p class="text-fg-subtle">No chores yet.</p>}
+    {allChores.length === 0 && <p class="rounded-2xl bg-surface p-5 text-fg-subtle shadow-card">No chores yet.</p>}
   </ul>
 </AdminLayout>

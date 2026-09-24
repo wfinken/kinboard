@@ -5,7 +5,7 @@ const weather = await fetchWeather();
 const unit = process.env.KINBOARD_TEMP_UNIT === 'fahrenheit' ? '°F' : '°C';
 ---
 
-<div class="rounded-2xl bg-surface p-6">
+<div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6">
   {
     weather ? (
       <>

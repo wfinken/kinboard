@@ -15,60 +15,74 @@ function isDone(choreId: string, frequency: 'daily' | 'weekly') {
 }
 
 const unassigned = allChores.filter((c) => !c.memberId);
-const byMember = members.map((member) => ({
-  member,
-  items: allChores.filter((c) => c.memberId === member.id),
-}));
+const byMember = members
+  .map((member) => ({
+    member,
+    items: allChores.filter((c) => c.memberId === member.id),
+  }))
+  .filter((group) => group.items.length > 0);
 ---
 
-<div class="rounded-2xl bg-surface p-6" data-chore-list>
-  <h2 class="mb-4 text-lg font-semibold text-fg-muted">Chores</h2>
-  <div class="grid gap-5 sm:grid-cols-2">
+<div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6" data-chore-list>
+  <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold">
+    <span aria-hidden="true">✅</span> Chores
+  </h2>
+  <div class="grid gap-4 sm:grid-cols-2">
     {
-      byMember
-        .filter((group) => group.items.length > 0)
-        .map((group) => (
-          <div>
+      byMember.map((group) => {
+        const doneCount = group.items.filter((c) => isDone(c.id, c.frequency)).length;
+        return (
+          <div class="rounded-2xl bg-surface-2/60 p-3">
             <div class="mb-2 flex items-center gap-2">
               <span
-                class="h-2.5 w-2.5 rounded-full"
+                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
                 style={`background-color:${group.member.color}`}
-              />
+              >
+                {group.member.name.slice(0, 1).toUpperCase()}
+              </span>
               <span class="font-medium">{group.member.name}</span>
+              <span class="ml-auto shrink-0 text-xs text-fg-subtle">
+                {doneCount}/{group.items.length}
+              </span>
             </div>
-            <ul class="space-y-1.5">
+            <ul class="space-y-0.5">
               {group.items.map((chore) => (
                 <li>
-                  <label class="flex cursor-pointer items-center gap-2 text-fg">
+                  <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-3">
                     <input
                       type="checkbox"
-                      class="h-5 w-5 rounded border-line bg-surface-2 accent-emerald-500"
+                      class="h-5 w-5 shrink-0 rounded border-line bg-surface accent-success"
                       checked={isDone(chore.id, chore.frequency)}
                       data-chore-id={chore.id}
                     />
-                    <span>{chore.title}</span>
+                    <span class="chore-title" data-done={isDone(chore.id, chore.frequency)}>
+                      {chore.title}
+                    </span>
                   </label>
                 </li>
               ))}
             </ul>
           </div>
-        ))
+        );
+      })
     }
     {
       unassigned.length > 0 && (
-        <div>
+        <div class="rounded-2xl bg-surface-2/60 p-3">
           <div class="mb-2 font-medium text-fg-muted">General</div>
-          <ul class="space-y-1.5">
+          <ul class="space-y-0.5">
             {unassigned.map((chore) => (
               <li>
-                <label class="flex cursor-pointer items-center gap-2 text-fg">
+                <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-3">
                   <input
                     type="checkbox"
-                    class="h-5 w-5 rounded border-line bg-surface-2 accent-emerald-500"
+                    class="h-5 w-5 shrink-0 rounded border-line bg-surface accent-success"
                     checked={isDone(chore.id, chore.frequency)}
                     data-chore-id={chore.id}
                   />
-                  <span>{chore.title}</span>
+                  <span class="chore-title" data-done={isDone(chore.id, chore.frequency)}>
+                    {chore.title}
+                  </span>
                 </label>
               </li>
             ))}
@@ -79,12 +93,22 @@ const byMember = members.map((member) => ({
   </div>
 </div>
 
+<style>
+  .chore-title[data-done='true'] {
+    text-decoration: line-through;
+    opacity: 0.55;
+  }
+</style>
+
 <script>
   document.querySelectorAll<HTMLInputElement>('[data-chore-id]').forEach((checkbox) => {
+    const titleEl = checkbox.closest('label')?.querySelector<HTMLElement>('.chore-title');
+
     checkbox.addEventListener('change', async () => {
       const choreId = checkbox.dataset.choreId;
       const completed = checkbox.checked;
       checkbox.disabled = true;
+      titleEl?.setAttribute('data-done', String(completed));
       try {
         const res = await fetch(`/api/dashboard/chores/${choreId}/toggle`, {
           method: 'POST',
@@ -94,6 +118,7 @@ const byMember = members.map((member) => ({
         if (!res.ok) throw new Error('Request failed');
       } catch {
         checkbox.checked = !completed;
+        titleEl?.setAttribute('data-done', String(!completed));
       } finally {
         checkbox.disabled = false;
       }

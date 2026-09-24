@@ -28,7 +28,7 @@ const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
   <form method="POST" action="/api/admin/meals" class="space-y-4">
     {
       weekDays.map((date) => (
-        <div class="rounded-lg bg-surface p-4">
+        <div class="rounded-2xl bg-surface p-4 shadow-card sm:p-5">
           <div class="mb-2 font-medium">
             {new Date(date).toLocaleDateString([], {
               weekday: 'long',
@@ -45,7 +45,7 @@ const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
                 <input
                   name={`meal_${date}_${type}`}
                   value={mealsByDate[date]?.[type] ?? ''}
-                  class="w-full rounded-md border border-line bg-surface-2 px-3 py-2 text-sm"
+                  class="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm"
                 />
               </div>
             ))}
@@ -53,7 +53,7 @@ const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
         </div>
       ))
     }
-    <button class="rounded-md bg-emerald-600 px-4 py-2 font-medium hover:bg-emerald-500">
+    <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
       Save Week
     </button>
   </form>

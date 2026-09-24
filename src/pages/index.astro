@@ -20,20 +20,29 @@ const WIDGET_COMPONENTS: Record<DashboardWidgetId, (_props: Record<string, never
   notes: StickyNotes,
 };
 
-// Calendar and chores read better as wide cards; everything else is happy
-// at one column on large screens. Order is otherwise fully admin-configurable.
-const WIDE_WIDGETS = new Set<DashboardWidgetId>(['calendar', 'chores']);
+// Calendar reads best as the full-width hero row (it's laid out as day
+// columns); chores reads well at two columns; everything else is happy at
+// one. Order/subset is otherwise fully admin-configurable.
+const SPAN_CLASS: Record<DashboardWidgetId, string> = {
+  clock: 'lg:col-span-1',
+  weather: 'lg:col-span-2',
+  calendar: 'lg:col-span-3',
+  chores: 'lg:col-span-2',
+  meals: 'lg:col-span-1',
+  notes: 'lg:col-span-1',
+};
 ---
 
 <Layout title="Dashboard" refreshSeconds={settings.refreshSeconds} theme={settings.theme}>
-  <div class="mx-auto max-w-7xl px-6 py-8">
-    <div class="grid gap-6 lg:grid-cols-3">
+  {/* Generous side padding doubles as a safe-area margin for TVs that
+     overscan/crop the edges of the screen. */}
+  <div class="mx-auto max-w-7xl px-8 py-8 sm:px-10 lg:px-12">
+    <div class="grid gap-5 lg:grid-cols-3">
       {
         settings.widgetOrder.map((id) => {
           const Widget = WIDGET_COMPONENTS[id];
-          const spanClass = WIDE_WIDGETS.has(id) ? 'lg:col-span-2' : 'lg:col-span-1';
           return (
-            <div class={spanClass}>
+            <div class={SPAN_CLASS[id]}>
               <Widget />
             </div>
           );

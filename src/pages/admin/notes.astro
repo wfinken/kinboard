@@ -8,35 +8,45 @@ const notes = await db.query.stickyNotes.findMany({ orderBy: desc(stickyNotes.cr
 ---
 
 <AdminLayout title="Bulletin Board">
-  <form method="POST" action="/api/admin/notes" class="mb-8 flex flex-wrap items-end gap-3">
+  <form
+    method="POST"
+    action="/api/admin/notes"
+    class="mb-6 flex flex-wrap items-end gap-3 rounded-2xl bg-surface p-5 shadow-card"
+  >
     <div class="min-w-64 flex-1">
-      <label class="block text-sm text-fg-muted" for="content">Note</label>
+      <label class="block text-sm text-fg-muted" for="content">
+        Note
+      </label>
       <input
         id="content"
         name="content"
         required
-        class="w-full rounded-md border border-line bg-surface-2 px-3 py-2.5"
+        class="w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5"
       />
     </div>
     <div>
-      <label class="block text-sm text-fg-muted" for="authorName">From</label>
+      <label class="block text-sm text-fg-muted" for="authorName">
+        From
+      </label>
       <input
         id="authorName"
         name="authorName"
-        class="rounded-md border border-line bg-surface-2 px-3 py-2.5"
+        class="rounded-lg border border-line bg-surface-2 px-3 py-2.5"
       />
     </div>
     <div>
-      <label class="block text-sm text-fg-muted" for="color">Color</label>
+      <label class="block text-sm text-fg-muted" for="color">
+        Color
+      </label>
       <input
         id="color"
         name="color"
         type="color"
         value="#facc15"
-        class="h-11 w-14 rounded-md border border-line bg-surface-2 p-1"
+        class="h-11 w-14 rounded-lg border border-line bg-surface-2 p-1"
       />
     </div>
-    <button class="rounded-md bg-emerald-600 px-4 py-2.5 font-medium hover:bg-emerald-500">
+    <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
       Add Note
     </button>
   </form>
@@ -44,17 +54,17 @@ const notes = await db.query.stickyNotes.findMany({ orderBy: desc(stickyNotes.cr
   <ul class="grid gap-3 sm:grid-cols-2">
     {
       notes.map((note) => (
-        <li class="rounded-lg p-4 text-neutral-900" style={`background-color:${note.color}`}>
+        <li class="rounded-2xl p-4 text-ink shadow-card" style={`background-color:${note.color}`}>
           <p class="mb-2 font-medium">{note.content}</p>
-          <div class="flex items-center justify-between text-sm text-neutral-700">
+          <div class="flex items-center justify-between text-sm text-ink-soft">
             <span>{note.authorName ?? ''}</span>
             <form method="POST" action={`/api/admin/notes/${note.id}/delete`}>
-              <button class="hover:text-red-700">Remove</button>
+              <button class="hover:text-danger-hover">Remove</button>
             </form>
           </div>
         </li>
       ))
     }
-    {notes.length === 0 && <p class="text-fg-subtle">No notes yet.</p>}
+    {notes.length === 0 && <p class="rounded-2xl bg-surface p-5 text-fg-subtle shadow-card">No notes yet.</p>}
   </ul>
 </AdminLayout>

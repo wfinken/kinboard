@@ -26,24 +26,27 @@ const weekDays = Array.from({ length: 7 }, (_, i) => {
   d.setDate(d.getDate() + i);
   return d.toISOString().slice(0, 10);
 });
+
+const MEAL_ICONS = { breakfast: '🍳', lunch: '🥪', dinner: '🍽️' } as const;
 ---
 
-<div class="rounded-2xl bg-surface p-6">
-  <h2 class="mb-4 text-lg font-semibold text-fg-muted">Meals Today</h2>
+<div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6">
+  <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold">
+    <span aria-hidden="true">🍽️</span> Meals Today
+  </h2>
   <div class="grid grid-cols-3 gap-3 text-center">
     {
       (['breakfast', 'lunch', 'dinner'] as const).map((type) => (
-        <div class="rounded-lg bg-surface-2/60 p-3">
-          <div class="text-xs uppercase tracking-wide text-fg-subtle">{type}</div>
+        <div class="rounded-2xl bg-surface-2/60 p-3">
+          <div class="text-lg">{MEAL_ICONS[type]}</div>
+          <div class="mt-0.5 text-xs uppercase tracking-wide text-fg-subtle">{type}</div>
           <div class="mt-1 text-sm">{todayMeals[type] || '—'}</div>
         </div>
       ))
     }
   </div>
-  <h3 class="mt-5 mb-2 text-sm font-medium uppercase tracking-wide text-fg-subtle">
-    Week Ahead
-  </h3>
-  <ul class="space-y-1 text-sm text-fg-muted">
+  <h3 class="mb-2 mt-5 text-sm font-medium uppercase tracking-wide text-fg-subtle">Week Ahead</h3>
+  <ul class="space-y-1 text-sm">
     {
       weekDays.slice(1).map((date) => {
         const dayMeals = mealsByDate[date];
@@ -52,7 +55,9 @@ const weekDays = Array.from({ length: 7 }, (_, i) => {
           : 'Not planned';
         return (
           <li class="flex justify-between gap-4">
-            <span>{new Date(date).toLocaleDateString([], { weekday: 'short' })}</span>
+            <span class="font-medium">
+              {new Date(date).toLocaleDateString([], { weekday: 'short' })}
+            </span>
             <span class="truncate text-fg-muted">{summary}</span>
           </li>
         );
