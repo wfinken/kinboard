@@ -17,12 +17,14 @@ export interface DashboardSettings {
   widgetOrder: DashboardWidgetId[];
   refreshSeconds: number;
   theme: DashboardTheme;
+  timezone: string;
 }
 
 const DEFAULTS: DashboardSettings = {
   widgetOrder: [...DASHBOARD_WIDGETS],
   refreshSeconds: 300,
   theme: 'dark',
+  timezone: 'auto',
 };
 
 export async function getDashboardSettings(): Promise<DashboardSettings> {
@@ -33,7 +35,7 @@ export async function getDashboardSettings(): Promise<DashboardSettings> {
 
   // Guard against stale ids lingering after a code change that renamed/removed a widget.
   const widgetOrder = row.widgetOrder.filter((id) => DASHBOARD_WIDGETS.includes(id));
-  return { widgetOrder, refreshSeconds: row.refreshSeconds, theme: row.theme };
+  return { widgetOrder, refreshSeconds: row.refreshSeconds, theme: row.theme, timezone: row.timezone };
 }
 
 export async function saveDashboardSettings(settings: DashboardSettings): Promise<void> {

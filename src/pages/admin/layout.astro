@@ -77,6 +77,16 @@ const enabledSet = new Set(settings.widgetOrder);
       </ul>
       <div class="flex flex-wrap gap-6">
         <div>
+          <label class="block text-sm text-fg-muted" for="timezone">Household timezone</label>
+          <select id="timezone" name="timezone" class="rounded-lg border border-line bg-surface-2 px-3 py-2">
+            <option value="auto" selected={settings.timezone === 'auto'}>Auto-detect this device</option>
+            {['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Europe/London','Europe/Paris','Asia/Tokyo','Australia/Sydney'].map((tz) => (
+              <option value={tz} selected={settings.timezone === tz}>{tz}</option>
+            ))}
+          </select>
+          <p class="mt-1 text-xs text-fg-subtle">Auto-detect uses this browser when saved.</p>
+        </div>
+        <div>
           <label class="block text-sm text-fg-muted" for="refreshSeconds">
             Dashboard refresh interval (seconds)
           </label>
@@ -113,3 +123,17 @@ const enabledSet = new Set(settings.widgetOrder);
     </form>
   </section>
 </AdminLayout>
+
+<script>
+  const timezone = document.getElementById('timezone') as any;
+  if (timezone && timezone.value === 'auto') {
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (detected) {
+        const option = Array.from(timezone.options).find((item: any) => item.value === detected);
+        if (option) timezone.value = detected;
+        else timezone.add(new Option(`${detected} (detected)`, detected, true, true));
+      }
+    } catch { /* Keep auto when browser detection is unavailable. */ }
+  }
+</script>

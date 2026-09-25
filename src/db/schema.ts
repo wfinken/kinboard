@@ -153,4 +153,5 @@ export const dashboardSettings = sqliteTable('dashboard_settings', {
     .default(sql`'["clock","weather","calendar","meals","chores","notes"]'`),
   refreshSeconds: integer('refresh_seconds').notNull().default(300),
   theme: text('theme', { enum: ['light', 'dark'] }).notNull().default('dark'),
+  timezone: text('timezone').notNull().default('auto'),
 });

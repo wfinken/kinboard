@@ -1,6 +1,7 @@
 ---
 import { fetchUpcomingEvents, type CalendarEvent } from '../lib/google-calendar';
 import { householdTimezone, zonedCalendarDate, dateKeyUTC } from '../lib/dates';
+import { getDashboardSettings } from '../lib/settings';
 
 const DAY_COUNT = 4;
 
@@ -14,7 +15,9 @@ const events = ownerId ? await fetchUpcomingEvents(ownerId, now, rangeEnd) : [];
 
 // "Today" for the household, not the server (the Worker runs in UTC
 // regardless of where the household actually is) — see lib/dates.ts.
-const today = zonedCalendarDate(now, householdTimezone());
+const settings = await getDashboardSettings();
+const timezone = settings.timezone === 'auto' ? householdTimezone() : settings.timezone;
+const today = zonedCalendarDate(now, timezone);
 const days = Array.from({ length: DAY_COUNT }, (_, i) => {
   const d = new Date(today);
   d.setUTCDate(d.getUTCDate() + i);

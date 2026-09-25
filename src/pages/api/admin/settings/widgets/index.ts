@@ -17,8 +17,9 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 
   const refreshSeconds = Math.max(30, Number(form.get('refreshSeconds')) || 300);
   const theme = form.get('theme') === 'light' ? 'light' : 'dark';
+  const timezone = String(form.get('timezone') || 'auto');
 
-  await saveDashboardSettings({ widgetOrder, refreshSeconds, theme });
+  await saveDashboardSettings({ widgetOrder, refreshSeconds, theme, timezone });
 
   return redirect('/admin/layout');
 };

@@ -29,6 +29,13 @@
       "when": 1790289000000,
       "tag": "0003_family_calendar_events",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790290000000,
+      "tag": "0004_household_timezone",
+      "breakpoints": true
     }
   ]
 }
