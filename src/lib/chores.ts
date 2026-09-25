@@ -1,14 +1,18 @@
+import { householdTimezone, zonedCalendarDate, zonedDateKey } from './dates';
+
 /**
  * Chores "reset" without any cron job: completions are keyed by period
  * (today's date for daily chores, this ISO week for weekly ones), so a new
- * period simply has no completion row yet.
+ * period simply has no completion row yet. Period keys are computed in the
+ * household's own timezone (not the server's) — see dates.ts.
  */
 export function currentPeriodKey(frequency: 'daily' | 'weekly', now = new Date()): string {
+  const tz = householdTimezone();
   if (frequency === 'daily') {
-    return now.toISOString().slice(0, 10); // YYYY-MM-DD
+    return zonedDateKey(now, tz);
   }
 
-  const date = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const date = zonedCalendarDate(now, tz);
   const dayNum = (date.getUTCDay() + 6) % 7; // Monday = 0
   date.setUTCDate(date.getUTCDate() - dayNum + 3); // nearest Thursday
   const firstThursday = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));

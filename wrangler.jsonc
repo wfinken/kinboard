@@ -24,6 +24,7 @@
   "vars": {
     "KINBOARD_LAT": "40.7128",
     "KINBOARD_LON": "-74.0060",
-    "KINBOARD_TEMP_UNIT": "celsius"
+    "KINBOARD_TEMP_UNIT": "celsius",
+    "KINBOARD_TIMEZONE": "America/New_York"
   }
 }

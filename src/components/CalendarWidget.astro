@@ -1,6 +1,7 @@
 ---
 import { getHouseholdOwnerId } from '../lib/household';
 import { fetchUpcomingEvents, type CalendarEvent } from '../lib/google-calendar';
+import { householdTimezone, zonedCalendarDate, dateKeyUTC } from '../lib/dates';
 
 const DAY_COUNT = 4;
 
@@ -12,15 +13,19 @@ rangeEnd.setDate(rangeEnd.getDate() + DAY_COUNT);
 
 const events = ownerId ? await fetchUpcomingEvents(ownerId, now, rangeEnd) : [];
 
+// "Today" for the household, not the server (the Worker runs in UTC
+// regardless of where the household actually is) — see lib/dates.ts.
+const today = zonedCalendarDate(now, householdTimezone());
 const days = Array.from({ length: DAY_COUNT }, (_, i) => {
-  const d = new Date(now);
-  d.setDate(d.getDate() + i);
+  const d = new Date(today);
+  d.setUTCDate(d.getUTCDate() + i);
   return d;
 });
 
-function dateKey(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
+// `days` entries are calendar-only dates normalized to UTC midnight (see
+// zonedCalendarDate), so dateKeyUTC/toISOString on them is exact — no
+// server-timezone shift.
+const dateKey = dateKeyUTC;
 
 function timeLabel(event: CalendarEvent) {
   if (event.allDay) return 'All day';
@@ -34,7 +39,7 @@ const eventsByDay = events.reduce<Record<string, CalendarEvent[]>>((acc, event) 
   return acc;
 }, {});
 
-const todayKey = dateKey(now);
+const todayKey = dateKey(today);
 ---
 
 <div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6">
@@ -56,12 +61,12 @@ const todayKey = dateKey(now);
             <div class="min-w-0 rounded-2xl bg-surface-2/60 p-2 sm:p-3">
               <div class="mb-2 text-center">
                 <div class="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
-                  {day.toLocaleDateString([], { weekday: 'short' })}
+                  {day.toLocaleDateString([], { weekday: 'short', timeZone: 'UTC' })}
                 </div>
                 <div
                   class={`mx-auto mt-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${isToday ? 'bg-accent text-white' : 'text-fg'}`}
                 >
-                  {day.getDate()}
+                  {day.getUTCDate()}
                 </div>
               </div>
               <div class="space-y-1.5">

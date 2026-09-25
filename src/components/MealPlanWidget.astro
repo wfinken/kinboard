@@ -2,13 +2,13 @@
 import { db } from '../db/client';
 import { meals } from '../db/schema';
 import { gte, lte, and } from 'drizzle-orm';
-import { parseDateKey } from '../lib/dates';
+import { parseDateKey, householdTimezone, zonedCalendarDate, dateKeyUTC } from '../lib/dates';
 
-const today = new Date();
-const todayKey = today.toISOString().slice(0, 10);
+const today = zonedCalendarDate(new Date(), householdTimezone());
+const todayKey = dateKeyUTC(today);
 const weekEnd = new Date(today);
-weekEnd.setDate(weekEnd.getDate() + 6);
-const weekEndKey = weekEnd.toISOString().slice(0, 10);
+weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+const weekEndKey = dateKeyUTC(weekEnd);
 
 const weekMeals = await db.query.meals.findMany({
   where: and(gte(meals.date, todayKey), lte(meals.date, weekEndKey)),
@@ -24,8 +24,8 @@ const todayMeals = mealsByDate[todayKey] ?? {};
 
 const weekDays = Array.from({ length: 7 }, (_, i) => {
   const d = new Date(today);
-  d.setDate(d.getDate() + i);
-  return d.toISOString().slice(0, 10);
+  d.setUTCDate(d.getUTCDate() + i);
+  return dateKeyUTC(d);
 });
 
 const MEAL_ICONS = { breakfast: '🍳', lunch: '🥪', dinner: '🍽️' } as const;

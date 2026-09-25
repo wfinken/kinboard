@@ -88,7 +88,10 @@ docker compose up -d --build
 The SQLite database lives in the `kinboard-data` named volume (mounted at
 `/app/data`), and migrations run automatically on container start
 (`docker-entrypoint.sh`). Update `KINBOARD_LAT`/`KINBOARD_LON` in `.env` to
-your location for the weather widget (defaults to New York City).
+your location for the weather widget (defaults to New York City), and
+`KINBOARD_TIMEZONE` to your IANA timezone (defaults to `America/New_York`) so
+chores/meals/the calendar agree on what day it is - the server's own clock
+runs in UTC regardless of where the household actually is.
 
 ## Cloudflare Workers deployment
 
@@ -158,8 +161,9 @@ npx wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
 The weather widget's location (`KINBOARD_LAT`/`KINBOARD_LON`/`KINBOARD_TEMP_UNIT`)
-isn't sensitive — it's already set as plain `vars` in `wrangler.jsonc`; edit
-the values there directly for your location.
+and the household's `KINBOARD_TIMEZONE` aren't sensitive — they're already
+set as plain `vars` in `wrangler.jsonc`; edit the values there directly for
+your location.
 
 ### 6. Deploy
 
