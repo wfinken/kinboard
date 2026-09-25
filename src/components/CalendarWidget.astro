@@ -1,6 +1,6 @@
 ---
 import { fetchUpcomingEvents, type CalendarEvent } from '../lib/google-calendar';
-import { householdTimezone, zonedCalendarDate, dateKeyUTC } from '../lib/dates';
+import { householdTimezone, zonedCalendarDate, zonedDateKey, dateKeyUTC } from '../lib/dates';
 import { getDashboardSettings } from '../lib/settings';
 
 const DAY_COUNT = 4;
@@ -29,13 +29,30 @@ const days = Array.from({ length: DAY_COUNT }, (_, i) => {
 // server-timezone shift.
 const dateKey = dateKeyUTC;
 
-function timeLabel(event: CalendarEvent) {
+function hasTimezone(value: string) {
+  return /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+}
+
+function timeLabel(event: CalendarEvent, timezone: string) {
   if (event.allDay) return 'All day';
-  return new Date(event.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  // Local events are stored as household wall-clock values from datetime-local;
+  // Google events carry an offset/Z and should be converted into the household zone.
+  if (!hasTimezone(event.start)) {
+    const [hour, minute] = event.start.slice(11, 16).split(':').map(Number);
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${suffix}`;
+  }
+  return new Date(event.start).toLocaleTimeString([], {
+    timeZone: timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 const eventsByDay = events.reduce<Record<string, CalendarEvent[]>>((acc, event) => {
-  const key = event.start.slice(0, 10);
+  const key = event.allDay || !hasTimezone(event.start)
+    ? event.start.slice(0, 10)
+    : zonedDateKey(new Date(event.start), timezone);
   acc[key] ??= [];
   acc[key].push(event);
   return acc;
@@ -82,7 +99,7 @@ const todayKey = dateKey(today);
                     >
                       <p class="truncate font-medium">{event.title}</p>
                       {event.memberName && <p class="truncate text-[10px] font-semibold" style={`color:${event.color}`}>{event.memberName}</p>}
-                      <p class="truncate text-fg-subtle">{timeLabel(event)}</p>
+                      <p class="truncate text-fg-subtle">{timeLabel(event, timezone)}</p>
                     </div>
                   ))
                 )}
