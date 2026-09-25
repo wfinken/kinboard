@@ -1,0 +1,30 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { Auth } from '@auth/core';
+import { authConfig } from '../lib/auth';
+import { getDashboardSettings } from '../lib/settings';
+
+const csrfUrl = new URL('/api/auth/csrf', Astro.url);
+const csrfResponse = await Auth(new Request(csrfUrl, { headers: Astro.request.headers }), authConfig);
+const { csrfToken } = (await csrfResponse.json()) as { csrfToken: string };
+const requestedCallback = Astro.url.searchParams.get('callbackUrl');
+const callbackUrl = requestedCallback && requestedCallback !== '/' ? requestedCallback : '/welcome';
+const { theme } = await getDashboardSettings();
+---
+
+<Layout title="Welcome" theme={theme}>
+  <main class="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12">
+    <div class="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-accent/20 blur-3xl"></div>
+    <div class="pointer-events-none absolute -bottom-32 -right-16 h-80 w-80 rounded-full bg-success/10 blur-3xl"></div>
+    <section class="relative w-full max-w-md rounded-3xl border border-line bg-surface p-8 shadow-card sm:p-10">
+      <div class="mb-8 flex items-center gap-3"><div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent text-2xl text-white">✦</div><div><p class="text-xl font-bold tracking-tight">KinBoard</p><p class="text-sm text-fg-subtle">Your home, at a glance.</p></div></div>
+      <h1 class="text-3xl font-bold tracking-tight">Welcome home.</h1>
+      <p class="mt-3 leading-6 text-fg-muted">Sign in to open your private family dashboard and keep calendars, chores, meals, and notes in one calm place.</p>
+      <form class="mt-8" method="POST" action="/api/auth/signin/google">
+        <input type="hidden" name="csrfToken" value={csrfToken} /><input type="hidden" name="callbackUrl" value={callbackUrl} />
+        <button class="flex w-full items-center justify-center gap-3 rounded-2xl bg-white px-4 py-3.5 font-semibold text-ink shadow-sm transition hover:bg-mist-soft"><span class="text-lg">G</span> Continue with Google</button>
+      </form>
+      <p class="mt-6 text-center text-xs leading-5 text-fg-subtle">New here? We’ll help you set up your dashboard after you sign in.</p>
+    </section>
+  </main>
+</Layout>

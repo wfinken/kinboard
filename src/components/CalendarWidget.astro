@@ -1,11 +1,10 @@
 ---
-import { getHouseholdOwnerId } from '../lib/household';
 import { fetchUpcomingEvents, type CalendarEvent } from '../lib/google-calendar';
 import { householdTimezone, zonedCalendarDate, dateKeyUTC } from '../lib/dates';
 
 const DAY_COUNT = 4;
 
-const ownerId = await getHouseholdOwnerId();
+const ownerId = Astro.locals.session?.user?.id ?? null;
 
 const now = new Date();
 const rangeEnd = new Date(now);

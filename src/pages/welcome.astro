@@ -1,0 +1,20 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getDashboardSettings } from '../lib/settings';
+import { db } from '../db/client';
+import { calendars } from '../db/schema';
+import { eq } from 'drizzle-orm';
+
+const user = Astro.locals.session?.user;
+if (!user) return Astro.redirect('/login');
+const { theme } = await getDashboardSettings();
+const calendarCount = await db.$count(calendars, eq(calendars.userId, user.id));
+const isReturningUser = calendarCount > 0;
+---
+
+<Layout title="Get started" theme={theme}>
+  <main class="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16"><div class="w-full">
+    <div class="mb-10 max-w-2xl"><p class="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-accent">{isReturningUser ? 'Welcome back' : 'Let’s get started'}</p><h1 class="text-4xl font-bold tracking-tight sm:text-5xl">{isReturningUser ? `Good to see you, ${user.name?.split(' ')[0] || 'there'}.` : 'Make KinBoard yours.'}</h1><p class="mt-4 text-lg leading-8 text-fg-muted">{isReturningUser ? 'Your dashboard is ready whenever you are.' : 'Connect your calendar and shape a dashboard that works for your household.'}</p></div>
+    <div class="grid gap-5 md:grid-cols-2"><a href="/" class="group rounded-3xl bg-surface p-6 shadow-card transition hover:-translate-y-1 hover:bg-surface-2"><div class="mb-8 text-4xl">🏠</div><h2 class="text-xl font-semibold">Open my dashboard</h2><p class="mt-2 text-fg-muted">See today’s schedule, chores, meals, and notes.</p><span class="mt-8 inline-block font-semibold text-accent">Go to dashboard →</span></a><a href="/admin/calendars" class="group rounded-3xl border border-line bg-surface p-6 shadow-card transition hover:-translate-y-1 hover:bg-surface-2"><div class="mb-8 text-4xl">✨</div><h2 class="text-xl font-semibold">{isReturningUser ? 'Manage my setup' : 'Set up my dashboard'}</h2><p class="mt-2 text-fg-muted">{isReturningUser ? 'Update calendars and household preferences.' : 'Start by connecting Google Calendar, then add your household details.'}</p><span class="mt-8 inline-block font-semibold text-success">{isReturningUser ? 'Manage settings' : 'Start setup'} →</span></a></div>
+  </div></main>
+</Layout>

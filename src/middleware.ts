@@ -4,22 +4,25 @@ import { getSession } from './lib/auth';
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
 
-  const isProtectedAdminRoute =
-    pathname.startsWith('/admin') && pathname !== '/admin/login';
-  // Only /api/admin/* requires the household owner's Google session. Routes
-  // under /api/dashboard/* (e.g. toggling a chore) are reachable from any
-  // device on the kiosk/tablet without login, same as the public dashboard.
-  const isProtectedApiRoute = pathname.startsWith('/api/admin');
+  const isLoginRoute = pathname === '/login' || pathname === '/admin/login';
+  const isAuthRoute = pathname.startsWith('/api/auth');
+  const isProtectedRoute = !isLoginRoute && !isAuthRoute;
 
-  if (isProtectedAdminRoute || isProtectedApiRoute) {
+  if (isProtectedRoute) {
     const session = await getSession(context.request);
     if (!session?.user) {
-      if (isProtectedApiRoute) {
+      if (pathname.startsWith('/api/')) {
         return new Response('Unauthorized', { status: 401 });
       }
-      return context.redirect('/admin/login');
+      const callbackUrl = `${context.url.pathname}${context.url.search}`;
+      return context.redirect(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
     }
     context.locals.session = session;
+  }
+
+  if (isLoginRoute) {
+    const session = await getSession(context.request);
+    if (session?.user) return context.redirect('/');
   }
 
   return next();
