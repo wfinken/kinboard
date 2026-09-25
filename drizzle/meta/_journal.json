@@ -22,6 +22,13 @@
       "when": 1790286487088,
       "tag": "0002_shallow_microchip",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790289000000,
+      "tag": "0003_family_calendar_events",
+      "breakpoints": true
     }
   ]
 }

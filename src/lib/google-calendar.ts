@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db/client';
-import { accounts, calendars } from '../db/schema';
+import { accounts, calendars, calendarEvents, householdMembers } from '../db/schema';
 
 export interface CalendarEvent {
   id: string;
@@ -10,6 +10,7 @@ export interface CalendarEvent {
   end: string;
   allDay: boolean;
   color: string;
+  memberName?: string;
 }
 
 async function refreshAccessToken(refreshToken: string) {
@@ -71,7 +72,23 @@ export async function fetchUpcomingEvents(
   timeMax: Date,
 ): Promise<CalendarEvent[]> {
   const accessToken = await getGoogleAccessToken(userId);
-  if (!accessToken) return [];
+  const localEvents = await db
+    .select({ event: calendarEvents, member: householdMembers })
+    .from(calendarEvents)
+    .leftJoin(householdMembers, eq(calendarEvents.memberId, householdMembers.id));
+  const local: CalendarEvent[] = localEvents
+    .filter(({ event }) => event.start < timeMax.toISOString().slice(0, 19) && event.end >= timeMin.toISOString().slice(0, 19))
+    .map(({ event, member }) => ({
+      id: event.id,
+      calendarId: 'local',
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      allDay: event.allDay,
+      color: member?.color ?? '#a78bfa',
+      memberName: member?.name,
+    }));
+  if (!accessToken) return local;
 
   const enabledCalendars = await db.query.calendars.findMany({
     where: and(eq(calendars.userId, userId), eq(calendars.enabled, true)),
@@ -120,7 +137,7 @@ export async function fetchUpcomingEvents(
     }),
   );
 
-  return results.flat().sort((a, b) => a.start.localeCompare(b.start));
+  return [...local, ...results.flat()].sort((a, b) => a.start.localeCompare(b.start));
 }
 
 /** Lists the Google Calendars available to the user's account (for admin setup). */

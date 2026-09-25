@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 
 const userId = Astro.locals.session?.user?.id!;
 const myCalendars = await db.query.calendars.findMany({ where: eq(calendars.userId, userId) });
+const members = await db.query.householdMembers.findMany({ orderBy: (members, { asc }) => [asc(members.sortOrder)] });
 
 const error = Astro.url.searchParams.get('error');
 const synced = Astro.url.searchParams.get('synced');
@@ -21,6 +22,22 @@ const synced = Astro.url.searchParams.get('synced');
       </div>
     )
   }
+
+  <section class="mb-8 rounded-2xl bg-surface p-5 shadow-card">
+    <h2 class="mb-1 text-lg font-semibold">Add family event</h2>
+    <p class="mb-4 text-sm text-fg-subtle">Events appear on the dashboard in the selected family member’s color.</p>
+    <form method="POST" action="/api/admin/events" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <input name="title" required placeholder="Event title" class="rounded-xl bg-surface-2 px-3 py-2" />
+      <input name="start" type="datetime-local" required class="rounded-xl bg-surface-2 px-3 py-2" />
+      <input name="end" type="datetime-local" required class="rounded-xl bg-surface-2 px-3 py-2" />
+      <select name="memberId" class="rounded-xl bg-surface-2 px-3 py-2">
+        <option value="">Everyone</option>
+        {members.map((member) => <option value={member.id}>{member.name}</option>)}
+      </select>
+      <label class="flex items-center gap-2 text-sm"><input name="allDay" type="checkbox" /> All day</label>
+      <button class="rounded-full bg-accent px-5 py-2 font-medium text-white hover:bg-accent-hover sm:col-span-2 lg:col-span-5 lg:justify-self-start">Add event</button>
+    </form>
+  </section>
   {
     synced != null && !error && (
       <div class="mb-6 rounded-2xl border border-success bg-success-soft p-4 text-sm text-success">

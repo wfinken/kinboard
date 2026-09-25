@@ -78,6 +78,7 @@ const todayKey = dateKey(today);
                       style={`background-color:${event.color}22; border-color:${event.color}`}
                     >
                       <p class="truncate font-medium">{event.title}</p>
+                      {event.memberName && <p class="truncate text-[10px] font-semibold" style={`color:${event.color}`}>{event.memberName}</p>}
                       <p class="truncate text-fg-subtle">{timeLabel(event)}</p>
                     </div>
                   ))

@@ -78,6 +78,15 @@ export const calendars = sqliteTable('calendar', {
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
 });
 
+export const calendarEvents = sqliteTable('calendar_event', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  title: text('title').notNull(),
+  start: text('start').notNull(),
+  end: text('end').notNull(),
+  allDay: integer('all_day', { mode: 'boolean' }).notNull().default(false),
+  memberId: text('member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+});
+
 export const chores = sqliteTable('chore', {
   id: text('id')
     .primaryKey()
