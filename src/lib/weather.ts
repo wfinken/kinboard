@@ -30,6 +30,15 @@ export function describeWeatherCode(code: number) {
 export interface WeatherData {
   currentTemp: number;
   currentCode: number;
+  feelsLike: number;
+  humidity: number;
+  windSpeed: number;
+  today: {
+    high: number;
+    low: number;
+    precipChance: number;
+  };
+  /** Next 3 days, not including today. */
   forecast: Array<{
     date: string;
     high: number;
@@ -41,14 +50,22 @@ export interface WeatherData {
 export async function fetchWeather(): Promise<WeatherData | null> {
   const lat = process.env.KINBOARD_LAT ?? '40.7128';
   const lon = process.env.KINBOARD_LON ?? '-74.0060';
-  const unit = process.env.KINBOARD_TEMP_UNIT === 'fahrenheit' ? 'fahrenheit' : 'celsius';
+  const imperial = process.env.KINBOARD_TEMP_UNIT === 'fahrenheit';
+  const unit = imperial ? 'fahrenheit' : 'celsius';
 
   const url = new URL('https://api.open-meteo.com/v1/forecast');
   url.searchParams.set('latitude', lat);
   url.searchParams.set('longitude', lon);
-  url.searchParams.set('current', 'temperature_2m,weather_code');
-  url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,weather_code');
+  url.searchParams.set(
+    'current',
+    'temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m',
+  );
+  url.searchParams.set(
+    'daily',
+    'temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max',
+  );
   url.searchParams.set('temperature_unit', unit);
+  url.searchParams.set('wind_speed_unit', imperial ? 'mph' : 'kmh');
   url.searchParams.set('timezone', 'auto');
   url.searchParams.set('forecast_days', '4');
 
@@ -57,18 +74,33 @@ export async function fetchWeather(): Promise<WeatherData | null> {
     if (!res.ok) return null;
 
     const data = (await res.json()) as {
-      current: { temperature_2m: number; weather_code: number };
+      current: {
+        temperature_2m: number;
+        weather_code: number;
+        apparent_temperature: number;
+        relative_humidity_2m: number;
+        wind_speed_10m: number;
+      };
       daily: {
         time: string[];
         temperature_2m_max: number[];
         temperature_2m_min: number[];
         weather_code: number[];
+        precipitation_probability_max: number[];
       };
     };
 
     return {
       currentTemp: Math.round(data.current.temperature_2m),
       currentCode: data.current.weather_code,
+      feelsLike: Math.round(data.current.apparent_temperature),
+      humidity: Math.round(data.current.relative_humidity_2m),
+      windSpeed: Math.round(data.current.wind_speed_10m),
+      today: {
+        high: Math.round(data.daily.temperature_2m_max[0]),
+        low: Math.round(data.daily.temperature_2m_min[0]),
+        precipChance: data.daily.precipitation_probability_max[0],
+      },
       forecast: data.daily.time.slice(1, 4).map((date, i) => ({
         date,
         high: Math.round(data.daily.temperature_2m_max[i + 1]),

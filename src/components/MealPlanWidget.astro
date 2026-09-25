@@ -2,6 +2,7 @@
 import { db } from '../db/client';
 import { meals } from '../db/schema';
 import { gte, lte, and } from 'drizzle-orm';
+import { parseDateKey } from '../lib/dates';
 
 const today = new Date();
 const todayKey = today.toISOString().slice(0, 10);
@@ -58,7 +59,7 @@ const MEAL_ICONS = { breakfast: '🍳', lunch: '🥪', dinner: '🍽️' } as co
         return (
           <li class="flex justify-between gap-4">
             <span class="font-medium">
-              {new Date(date).toLocaleDateString([], { weekday: 'short' })}
+              {parseDateKey(date).toLocaleDateString([], { weekday: 'short' })}
             </span>
             <span class="truncate text-fg-muted">{summary}</span>
           </li>

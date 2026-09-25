@@ -1,29 +1,60 @@
 ---
 import { fetchWeather, describeWeatherCode } from '../lib/weather';
+import { parseDateKey } from '../lib/dates';
 
 const weather = await fetchWeather();
-const unit = process.env.KINBOARD_TEMP_UNIT === 'fahrenheit' ? '°F' : '°C';
+const imperial = process.env.KINBOARD_TEMP_UNIT === 'fahrenheit';
+const unit = imperial ? '°F' : '°C';
+const windUnit = imperial ? 'mph' : 'km/h';
 ---
 
 <div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6">
   {
     weather ? (
       <>
-        <div class="flex items-center gap-4">
+        <div class="flex items-start gap-4">
           <span class="text-5xl">{describeWeatherCode(weather.currentCode).icon}</span>
-          <div>
-            <div class="text-4xl font-bold">
-              {weather.currentTemp}
-              {unit}
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-baseline gap-x-2">
+              <span class="text-4xl font-bold">
+                {weather.currentTemp}
+                {unit}
+              </span>
+              <span class="text-sm text-fg-subtle">
+                Feels like {weather.feelsLike}
+                {unit}
+              </span>
             </div>
             <div class="text-fg-muted">{describeWeatherCode(weather.currentCode).label}</div>
           </div>
         </div>
+        <dl class="mt-4 grid grid-cols-4 gap-2 border-t border-line-subtle pt-4 text-center">
+          <div>
+            <dt class="text-xs text-fg-subtle">High / Low</dt>
+            <dd class="mt-0.5 text-sm font-semibold">
+              {weather.today.high}° / {weather.today.low}°
+            </dd>
+          </div>
+          <div>
+            <dt class="text-xs text-fg-subtle">Humidity</dt>
+            <dd class="mt-0.5 text-sm font-semibold">{weather.humidity}%</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-fg-subtle">Wind</dt>
+            <dd class="mt-0.5 text-sm font-semibold">
+              {weather.windSpeed} {windUnit}
+            </dd>
+          </div>
+          <div>
+            <dt class="text-xs text-fg-subtle">Precip</dt>
+            <dd class="mt-0.5 text-sm font-semibold">{weather.today.precipChance}%</dd>
+          </div>
+        </dl>
         <div class="mt-4 flex justify-between gap-2 border-t border-line-subtle pt-4">
           {weather.forecast.map((day) => (
             <div class="text-center">
               <div class="text-sm text-fg-muted">
-                {new Date(day.date).toLocaleDateString([], { weekday: 'short' })}
+                {parseDateKey(day.date).toLocaleDateString([], { weekday: 'short' })}
               </div>
               <div class="text-2xl">{describeWeatherCode(day.code).icon}</div>
               <div class="text-sm">
