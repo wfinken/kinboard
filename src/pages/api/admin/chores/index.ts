@@ -13,5 +13,5 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     await db.insert(chores).values({ title, category, memberId, frequency });
   }
 
-  return redirect('/admin/chores');
+  return redirect(String(form.get('returnTo') ?? '/admin/chores'));
 };

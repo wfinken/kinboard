@@ -12,5 +12,5 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     await db.insert(stickyNotes).values({ content, color, authorName });
   }
 
-  return redirect('/admin/notes');
+  return redirect(String(form.get('returnTo') ?? '/admin/notes'));
 };

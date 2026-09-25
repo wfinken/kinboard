@@ -2,10 +2,12 @@
 import { fetchUpcomingEvents, type CalendarEvent } from '../lib/google-calendar';
 import { householdTimezone, zonedCalendarDate, zonedDateKey, dateKeyUTC } from '../lib/dates';
 import { getDashboardSettings } from '../lib/settings';
+import { db } from '../db/client';
 
 const DAY_COUNT = 4;
 
 const ownerId = Astro.locals.session?.user?.id ?? null;
+const members = await db.query.householdMembers.findMany({ orderBy: (m, { asc }) => asc(m.sortOrder) });
 
 const now = new Date();
 const rangeEnd = new Date(now);
@@ -64,6 +66,7 @@ const todayKey = dateKey(today);
 <div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6">
   <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold">
     <span aria-hidden="true">📅</span> Calendar
+    <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="calendar-dialog">＋ Add</button>
   </h2>
   {
     !ownerId ? (
@@ -111,3 +114,43 @@ const todayKey = dateKey(today);
     )
   }
 </div>
+
+<dialog id="calendar-dialog" class="w-[min(92vw,28rem)] rounded-3xl bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60">
+  <form method="POST" action="/api/admin/events" class="space-y-4 p-6">
+    <input type="hidden" name="returnTo" value="/" />
+    <div class="flex items-center justify-between"><h3 class="text-xl font-semibold">Add calendar item</h3><button type="button" class="text-2xl text-fg-muted" data-close-dialog aria-label="Close">×</button></div>
+    <input name="title" required autofocus placeholder="What’s happening?" class="w-full rounded-xl border border-line bg-surface-2 px-3 py-3" />
+    <label class="flex items-center gap-2 text-sm text-fg-muted"><input type="checkbox" name="allDay" data-all-day /> All day</label>
+    <div class="grid grid-cols-2 gap-3"><label class="text-sm text-fg-muted">Starts<input name="start" type="datetime-local" required class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /></label><label class="text-sm text-fg-muted" data-end-wrap>Ends<input name="end" type="datetime-local" required class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /></label></div>
+    <label class="block text-sm text-fg-muted">For<select name="memberId" class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5"><option value="">Everyone</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}</select></label>
+    <button class="w-full rounded-xl bg-accent px-4 py-3 font-semibold text-white hover:bg-accent-hover">Add to calendar</button>
+  </form>
+</dialog>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('#calendar-dialog');
+  document.querySelector('[data-open-dialog="calendar-dialog"]')?.addEventListener('click', () => {
+    const start = dialog?.querySelector<HTMLInputElement>('[name="start"]');
+    const end = dialog?.querySelector<HTMLInputElement>('[name="end"]');
+    if (start && !start.value) {
+      const now = new Date();
+      now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
+      const later = new Date(now.getTime() + 60 * 60 * 1000);
+      const value = (date: Date) => date.toISOString().slice(0, 16);
+      start.value = value(now);
+      if (end) end.value = value(later);
+    }
+    dialog?.showModal();
+  });
+  dialog?.querySelector('[data-close-dialog]')?.addEventListener('click', () => dialog.close());
+  dialog?.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
+  dialog?.querySelector<HTMLInputElement>('[data-all-day]')?.addEventListener('change', (event) => {
+    const allDay = (event.target as HTMLInputElement).checked;
+    const start = dialog.querySelector<HTMLInputElement>('[name="start"]');
+    const end = dialog.querySelector<HTMLInputElement>('[name="end"]');
+    const endWrap = dialog.querySelector<HTMLElement>('[data-end-wrap]');
+    if (start) start.type = allDay ? 'date' : 'datetime-local';
+    if (end) { end.required = !allDay; end.type = allDay ? 'date' : 'datetime-local'; }
+    if (endWrap) endWrap.classList.toggle('hidden', allDay);
+  });
+</script>

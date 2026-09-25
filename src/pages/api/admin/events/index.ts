@@ -12,5 +12,5 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   if (title && start && end && end >= start) {
     await db.insert(calendarEvents).values({ title, start, end, memberId, allDay });
   }
-  return redirect('/admin/calendars');
+  return redirect(String(form.get('returnTo') ?? '/admin/calendars'));
 };

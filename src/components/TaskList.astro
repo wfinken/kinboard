@@ -26,6 +26,7 @@ const byMember = members
 <div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6" data-chore-list>
   <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold">
     <span aria-hidden="true">✅</span> Chores
+    <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="chore-dialog">＋ Add</button>
   </h2>
   <div class="grid gap-4 sm:grid-cols-2">
     {
@@ -99,6 +100,15 @@ const byMember = members
     opacity: 0.55;
   }
 </style>
+
+<dialog id="chore-dialog" class="w-[min(92vw,27rem)] rounded-3xl bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60"><form method="POST" action="/api/admin/chores" class="space-y-4 p-6"><input type="hidden" name="returnTo" value="/" /><div class="flex items-center justify-between"><h3 class="text-xl font-semibold">Add a chore</h3><button type="button" class="text-2xl text-fg-muted" data-close-dialog>×</button></div><input name="title" required placeholder="What needs doing?" class="w-full rounded-xl border border-line bg-surface-2 px-3 py-3" /><div class="grid grid-cols-2 gap-3"><select name="memberId" class="rounded-xl border border-line bg-surface-2 px-3 py-2.5"><option value="">Everyone</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}</select><select name="frequency" class="rounded-xl border border-line bg-surface-2 px-3 py-2.5"><option value="daily">Every day</option><option value="weekly">Every week</option></select></div><input type="hidden" name="category" value="General" /><button class="w-full rounded-xl bg-success px-4 py-3 font-semibold text-white hover:bg-success-hover">Add chore</button></form></dialog>
+
+<script>
+  const choreDialog = document.querySelector<HTMLDialogElement>('#chore-dialog');
+  document.querySelector('[data-open-dialog="chore-dialog"]')?.addEventListener('click', () => choreDialog?.showModal());
+  choreDialog?.querySelector('[data-close-dialog]')?.addEventListener('click', () => choreDialog.close());
+  choreDialog?.addEventListener('click', (event) => { if (event.target === choreDialog) choreDialog.close(); });
+</script>
 
 <script>
   function updateGroupCount(group: HTMLElement) {
