@@ -30,6 +30,15 @@ const memberById = new Map(members.map((m) => [m.id, m]));
       />
     </div>
     <div>
+      <label class="block text-sm text-fg-muted" for="rotationMemberId">Alternate with</label>
+      <select id="rotationMemberId" name="rotationMemberId" class="rounded-lg border border-line bg-surface-2 px-3 py-2.5">
+        <option value="">No rotation</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}
+      </select>
+    </div>
+    <label class="block text-sm text-fg-muted">Points<input name="rewardPoints" type="number" min="0" value="1" class="mt-1 block w-24 rounded-lg border border-line bg-surface-2 px-3 py-2.5" /></label>
+    <label class="block text-sm text-fg-muted">Allowance $<input name="rewardAmount" type="number" min="0" step="0.25" value="0" class="mt-1 block w-28 rounded-lg border border-line bg-surface-2 px-3 py-2.5" /></label>
+    <label class="flex items-center gap-2 text-sm text-fg-muted"><input type="checkbox" name="bounty" /> Household bounty</label>
+    <div>
       <label class="block text-sm text-fg-muted" for="category">
         Category
       </label>

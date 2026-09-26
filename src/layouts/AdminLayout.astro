@@ -18,7 +18,8 @@ const navItems = [
   { href: '/admin/chores', label: 'Chores', icon: '✅' },
   { href: '/admin/meals', label: 'Meals', icon: '🍽️' },
   { href: '/admin/notes', label: 'Notes', icon: '📌' },
-  { href: '/admin/layout', label: 'Layout', icon: '🎛️' },
+  { href: '/admin/layout', label: 'Display', icon: '🎛️' },
+  { href: '/admin/account', label: 'Account', icon: '👤' },
 ];
 
 const currentPath = Astro.url.pathname;
@@ -40,11 +41,7 @@ const currentPath = Astro.url.pathname;
             KinBoard Admin
           </a>
           <div class="flex shrink-0 items-center gap-3">
-            {session?.user && (
-              <span class="hidden max-w-40 truncate text-sm text-fg-muted sm:inline">
-                {session.user.email}
-              </span>
-            )}
+            {session?.user && <a href="/admin/account" class="hidden max-w-40 truncate text-sm text-fg-muted hover:text-fg sm:inline">{session.user.email}</a>}
             <a
               href="/"
               class="rounded-full bg-surface-2 px-3 py-2 text-sm font-medium hover:bg-surface-3"
