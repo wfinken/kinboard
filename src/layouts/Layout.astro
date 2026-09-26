@@ -28,7 +28,8 @@ const { title, refreshSeconds, theme = 'dark' } = Astro.props;
     <title>{title} · KinBoard</title>
   </head>
   <body class="min-h-screen bg-page text-fg font-sans">
-    <div class="fixed right-4 top-4 z-50 flex items-center gap-2">
+    <div class="fixed right-4 top-4 z-50 flex items-center gap-2 dashboard-controls">
+      <button type="button" data-kiosk-toggle aria-pressed="false" class="rounded-full bg-surface-2 px-4 py-2 text-sm font-medium hover:bg-surface-3">⛶ Kiosk</button>
       <a
         href="/admin"
         aria-label="Open admin settings"
@@ -39,5 +40,48 @@ const { title, refreshSeconds, theme = 'dark' } = Astro.props;
       <ThemeToggle />
     </div>
     <slot />
+    <div class="ambient-saver" aria-hidden="true"><span>KinBoard</span><time data-saver-clock></time></div>
+    <script is:inline>
+      (() => {
+        const root = document.documentElement;
+        const toggle = document.querySelector('[data-kiosk-toggle]');
+        let saverTimer;
+        const enable = async () => {
+          root.classList.add('kiosk-mode');
+          try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); } catch {}
+          toggle?.setAttribute('aria-pressed', 'true');
+          localStorage.setItem('kinboard-kiosk', '1');
+        };
+        const disable = async () => {
+          root.classList.remove('kiosk-mode', 'ambient-dim', 'ambient-saver-active');
+          try { if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
+          toggle?.setAttribute('aria-pressed', 'false');
+          localStorage.removeItem('kinboard-kiosk');
+        };
+        toggle?.addEventListener('click', () => root.classList.contains('kiosk-mode') ? disable() : enable());
+        document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && root.classList.contains('kiosk-mode')) disable(); });
+        document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && root.classList.contains('kiosk-mode')) disable(); });
+        try { if (localStorage.getItem('kinboard-kiosk') === '1') enable(); } catch {}
+        const updateClock = () => { const node = document.querySelector('[data-saver-clock]'); if (node) node.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); };
+        updateClock(); setInterval(updateClock, 60_000);
+        const activity = () => { root.classList.remove('ambient-saver-active'); clearTimeout(saverTimer); saverTimer = setTimeout(() => root.classList.add('ambient-saver-active'), 120_000); };
+        ['pointerdown', 'keydown', 'touchstart'].forEach((name) => document.addEventListener(name, activity, { passive: true })); activity();
+        const updateAmbient = () => {
+          const hour = new Date().getHours();
+          root.classList.toggle('ambient-dim', hour >= 22 || hour < 6);
+        };
+        updateAmbient(); setInterval(updateAmbient, 60_000);
+      })();
+    </script>
   </body>
 </html>
+
+<style is:global>
+  .kiosk-mode .dashboard-controls { opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+  .kiosk-mode .dashboard-controls:hover, .kiosk-mode .dashboard-controls:focus-within { opacity: 1; pointer-events: auto; }
+  .ambient-dim body { filter: brightness(.62); }
+  .ambient-saver { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; gap: 1rem; background: #080a0e; color: #64748b; font-size: clamp(1.5rem, 4vw, 4rem); z-index: 100; }
+  .ambient-saver-active .ambient-saver { display: flex; }
+  .ambient-saver time { font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) { .kiosk-mode .dashboard-controls { transition: none; } }
+</style>

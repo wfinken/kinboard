@@ -18,8 +18,14 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const refreshSeconds = Math.max(30, Number(form.get('refreshSeconds')) || 300);
   const theme = form.get('theme') === 'light' ? 'light' : 'dark';
   const timezone = String(form.get('timezone') || 'auto');
+  const current = await (await import('../../../../../lib/settings')).getDashboardSettings();
+  const widgetSizes = { ...current.widgetSizes };
+  for (const id of DASHBOARD_WIDGETS) {
+    const size = form.get(`size_${id}`);
+    if (size === '1x1' || size === '2x1' || size === '2x2') widgetSizes[id] = size;
+  }
 
-  await saveDashboardSettings({ widgetOrder, refreshSeconds, theme, timezone });
+  await saveDashboardSettings({ widgetOrder, refreshSeconds, theme, timezone, widgetSizes });
 
   return redirect('/admin/layout');
 };

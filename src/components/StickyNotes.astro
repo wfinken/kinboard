@@ -18,14 +18,17 @@ const notes = await db.query.stickyNotes.findMany({
     notes.length === 0 ? (
       <p class="text-fg-subtle">No notes yet.</p>
     ) : (
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {notes.map((note) => (
+      <div class="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2">
+        {notes.map((note, index) => (
           <div
-            class="min-h-24 rounded-2xl p-3 text-ink shadow"
+            class={`note-card min-h-36 rounded-[1.5rem_1.15rem_1.6rem_1.2rem] p-5 text-ink shadow ${index % 2 ? 'note-tilt' : ''}`}
             style={`background-color:${note.color}`}
           >
-            <p class="text-sm font-medium leading-snug">{note.content}</p>
-            {note.authorName && <p class="mt-2 text-xs text-ink-soft">— {note.authorName}</p>}
+            {note.mediaUrl && note.mediaType === 'image' && <img src={note.mediaUrl} alt="Family board attachment" class="mb-3 max-h-48 w-full rounded-xl object-cover" />}
+            {note.mediaUrl && note.mediaType === 'audio' && <audio controls src={note.mediaUrl} class="mb-3 w-full">Voice message</audio>}
+            {note.mediaUrl && note.mediaType === 'drawing' && <img src={note.mediaUrl} alt="Family doodle" class="mb-3 max-h-48 w-full rounded-xl object-contain" />}
+            <p class="text-base font-semibold leading-snug sm:text-lg">{note.content}</p>
+            {note.authorName && <p class="mt-3 text-sm font-medium text-ink-soft">— {note.authorName}</p>}
           </div>
         ))}
       </div>
@@ -33,11 +36,28 @@ const notes = await db.query.stickyNotes.findMany({
   }
 </div>
 
-<dialog id="note-dialog" class="fixed inset-0 m-auto w-[min(92vw,27rem)] rounded-3xl bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60"><form method="POST" action="/api/admin/notes" class="space-y-4 p-6"><input type="hidden" name="returnTo" value="/" /><div class="flex items-center justify-between"><h3 class="text-xl font-semibold">Post a note</h3><button type="button" class="text-2xl text-fg-muted" data-close-dialog>×</button></div><textarea name="content" required rows="3" autofocus placeholder="Write a message for the household…" class="w-full resize-none rounded-xl border border-line bg-surface-2 px-3 py-3"></textarea><input name="authorName" placeholder="From (optional)" class="w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /><input type="hidden" name="color" value="#facc15" /><button class="w-full rounded-xl bg-accent px-4 py-3 font-semibold text-white hover:bg-accent-hover">Post note</button></form></dialog>
+<dialog id="note-dialog" class="fixed inset-0 m-auto w-[min(92vw,30rem)] rounded-3xl bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60"><form method="POST" action="/api/admin/notes" class="space-y-4 p-6"><input type="hidden" name="returnTo" value="/" /><div class="flex items-center justify-between"><h3 class="text-xl font-semibold">Post to the board</h3><button type="button" class="text-2xl text-fg-muted" data-close-dialog>×</button></div><textarea name="content" required rows="3" autofocus placeholder="Write a message for the household…" class="w-full resize-none rounded-xl border border-line bg-surface-2 px-3 py-3"></textarea><input name="authorName" placeholder="From (optional)" class="w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /><label class="block text-sm text-fg-muted">Photo, voice memo, or doodle<input name="media" type="file" accept="image/*,audio/*" capture="environment" class="mt-1 block w-full rounded-xl border border-line bg-surface-2 px-3 py-2" /></label><canvas data-doodle width="480" height="240" class="w-full touch-none rounded-xl border border-line bg-white"></canvas><input type="hidden" name="drawing" /><button type="button" data-clear-doodle class="text-sm text-fg-muted underline">Clear drawing</button><input type="hidden" name="color" value="#facc15" /><button class="w-full rounded-xl bg-accent px-4 py-3 font-semibold text-white hover:bg-accent-hover">Post note</button></form></dialog>
 
 <script>
   const noteDialog = document.querySelector<HTMLDialogElement>('#note-dialog');
   document.querySelector('[data-open-dialog="note-dialog"]')?.addEventListener('click', () => noteDialog?.showModal());
   noteDialog?.querySelector('[data-close-dialog]')?.addEventListener('click', () => noteDialog.close());
   noteDialog?.addEventListener('click', (event) => { if (event.target === noteDialog) noteDialog.close(); });
+  const canvas = noteDialog?.querySelector<HTMLCanvasElement>('[data-doodle]');
+  const ctx = canvas?.getContext('2d');
+  let drawing = false;
+  canvas?.addEventListener('pointerdown', (e) => { drawing = true; canvas.setPointerCapture(e.pointerId); ctx?.beginPath(); ctx?.moveTo(e.offsetX * canvas.width / canvas.clientWidth, e.offsetY * canvas.height / canvas.clientHeight); });
+  canvas?.addEventListener('pointermove', (e) => { if (!drawing || !ctx || !canvas) return; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.strokeStyle = '#27272a'; ctx.lineTo(e.offsetX * canvas.width / canvas.clientWidth, e.offsetY * canvas.height / canvas.clientHeight); ctx.stroke(); });
+  canvas?.addEventListener('pointerup', () => { drawing = false; });
+  noteDialog?.querySelector('[data-clear-doodle]')?.addEventListener('click', () => ctx?.clearRect(0, 0, canvas?.width ?? 0, canvas?.height ?? 0));
+  noteDialog?.querySelector('form')?.addEventListener('submit', () => {
+    if (!canvas || !ctx) return;
+    const hasDrawing = ctx.getImageData(0, 0, canvas.width, canvas.height).data.some((value, i) => i % 4 === 3 && value > 0);
+    if (hasDrawing) (noteDialog?.querySelector('[name="drawing"]') as HTMLInputElement).value = canvas.toDataURL('image/png');
+  });
 </script>
+
+<style>
+  .note-card { min-height: 12rem; background-image: linear-gradient(135deg, rgba(255,255,255,.18), transparent 55%); }
+  .note-tilt { transform: rotate(.6deg); }
+</style>

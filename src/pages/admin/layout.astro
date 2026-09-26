@@ -11,9 +11,14 @@ const displayOrder = [
 const enabledSet = new Set(settings.widgetOrder);
 ---
 
-<AdminLayout title="Dashboard Layout">
+<AdminLayout title="Display">
   <section class="mb-6 rounded-2xl bg-surface p-5 shadow-card sm:p-6">
-    <h2 class="mb-1 text-lg font-semibold">Widget Order</h2>
+    <div class="mb-5">
+      <p class="text-xs font-semibold uppercase tracking-wider text-accent">Dashboard</p>
+      <h2 class="mt-1 text-xl font-semibold">Arrange your dashboard</h2>
+      <p class="mt-1 text-sm text-fg-muted">Choose what appears, set tile sizes, and control the order people see on the wall display.</p>
+    </div>
+    <h3 class="mb-1 text-lg font-semibold">Widget order</h3>
     <p class="mb-4 text-sm text-fg-subtle">
       Enabled widgets appear on the dashboard top to bottom, left column first.
     </p>
@@ -54,12 +59,10 @@ const enabledSet = new Set(settings.widgetOrder);
     }
   </section>
 
-  <section class="rounded-2xl bg-surface p-5 shadow-card sm:p-6">
-    <h2 class="mb-1 text-lg font-semibold">Visible Widgets & Refresh</h2>
-    <p class="mb-4 text-sm text-fg-subtle">
-      Newly-enabled widgets are added to the bottom of the order above.
-    </p>
-    <form method="POST" action="/api/admin/settings/widgets" class="space-y-6">
+  <form method="POST" action="/api/admin/settings/widgets" class="space-y-6">
+    <section class="rounded-2xl bg-surface p-5 shadow-card sm:p-6">
+      <h2 class="text-lg font-semibold">Widgets and tile sizes</h2>
+      <p class="mb-4 mt-1 text-sm text-fg-muted">Turn widgets on or off and choose how much space each one gets. New widgets join the end of the order above.</p>
       <ul class="space-y-2">
         {
           displayOrder.map((id) => (
@@ -71,21 +74,22 @@ const enabledSet = new Set(settings.widgetOrder);
                 class="h-5 w-5 rounded border-line bg-surface accent-success"
               />
               <span>{WIDGET_LABELS[id]}</span>
+              <label class="ml-auto flex items-center gap-2 text-sm text-fg-muted">Tile size
+                <select name={`size_${id}`} class="rounded-lg border border-line bg-surface px-2 py-1.5">
+                  <option value="1x1" selected={(settings.widgetSizes[id] ?? '1x1') === '1x1'}>1 × 1</option>
+                  <option value="2x1" selected={settings.widgetSizes[id] === '2x1'}>2 × 1</option>
+                  <option value="2x2" selected={settings.widgetSizes[id] === '2x2'}>2 × 2</option>
+                </select>
+              </label>
             </li>
           ))
         }
       </ul>
+    </section>
+    <section class="rounded-2xl bg-surface p-5 shadow-card sm:p-6">
+      <h2 class="text-lg font-semibold">Display and refresh</h2>
+      <p class="mb-4 mt-1 text-sm text-fg-muted">Set the dashboard’s time zone, default appearance, and how often it reloads.</p>
       <div class="flex flex-wrap gap-6">
-        <div>
-          <label class="block text-sm text-fg-muted" for="timezone">Household timezone</label>
-          <select id="timezone" name="timezone" class="rounded-lg border border-line bg-surface-2 px-3 py-2">
-            <option value="auto" selected={settings.timezone === 'auto'}>Auto-detect this device</option>
-            {['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Europe/London','Europe/Paris','Asia/Tokyo','Australia/Sydney'].map((tz) => (
-              <option value={tz} selected={settings.timezone === tz}>{tz}</option>
-            ))}
-          </select>
-          <p class="mt-1 text-xs text-fg-subtle">Auto-detect uses this browser when saved.</p>
-        </div>
         <div>
           <label class="block text-sm text-fg-muted" for="refreshSeconds">
             Dashboard refresh interval (seconds)
@@ -112,28 +116,13 @@ const enabledSet = new Set(settings.widgetOrder);
               Light
             </label>
           </div>
-          <p class="mt-1 text-xs text-fg-subtle">
-            The toggle in the corner of any screen can still override this locally.
-          </p>
+          <p class="mt-1 text-xs text-fg-subtle">The toggle in the corner can override this on this device.</p>
         </fieldset>
       </div>
-      <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
-        Save
-      </button>
-    </form>
-  </section>
+    </section>
+    <div class="flex flex-wrap items-center gap-3">
+      <button class="rounded-full bg-success px-6 py-3 font-semibold text-white hover:bg-success-hover">Save dashboard settings</button>
+      <span class="text-sm text-fg-subtle">Changes apply to the household dashboard.</span>
+    </div>
+  </form>
 </AdminLayout>
-
-<script>
-  const timezone = document.getElementById('timezone') as any;
-  if (timezone && timezone.value === 'auto') {
-    try {
-      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (detected) {
-        const option = Array.from(timezone.options).find((item: any) => item.value === detected);
-        if (option) timezone.value = detected;
-        else timezone.add(new Option(`${detected} (detected)`, detected, true, true));
-      }
-    } catch { /* Keep auto when browser detection is unavailable. */ }
-  }
-</script>

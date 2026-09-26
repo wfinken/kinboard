@@ -18,6 +18,7 @@ export interface DashboardSettings {
   refreshSeconds: number;
   theme: DashboardTheme;
   timezone: string;
+  widgetSizes: Partial<Record<DashboardWidgetId, '1x1' | '2x1' | '2x2'>>;
 }
 
 const DEFAULTS: DashboardSettings = {
@@ -25,6 +26,7 @@ const DEFAULTS: DashboardSettings = {
   refreshSeconds: 300,
   theme: 'dark',
   timezone: 'auto',
+  widgetSizes: { clock: '1x1', weather: '2x1', calendar: '2x2', meals: '1x1', chores: '2x1', notes: '1x1' },
 };
 
 export async function getDashboardSettings(): Promise<DashboardSettings> {
@@ -35,7 +37,7 @@ export async function getDashboardSettings(): Promise<DashboardSettings> {
 
   // Guard against stale ids lingering after a code change that renamed/removed a widget.
   const widgetOrder = row.widgetOrder.filter((id) => DASHBOARD_WIDGETS.includes(id));
-  return { widgetOrder, refreshSeconds: row.refreshSeconds, theme: row.theme, timezone: row.timezone };
+  return { widgetOrder, refreshSeconds: row.refreshSeconds, theme: row.theme, timezone: row.timezone, widgetSizes: row.widgetSizes ?? DEFAULTS.widgetSizes };
 }
 
 export async function saveDashboardSettings(settings: DashboardSettings): Promise<void> {

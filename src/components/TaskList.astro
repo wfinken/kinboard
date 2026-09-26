@@ -2,9 +2,11 @@
 import { db } from '../db/client';
 import { currentPeriodKey } from '../lib/chores';
 
-const [allChores, members] = await Promise.all([
+const [allChores, members, claims, statuses] = await Promise.all([
   db.query.chores.findMany({ orderBy: (c, { asc }) => asc(c.sortOrder) }),
   db.query.householdMembers.findMany({ orderBy: (m, { asc }) => asc(m.sortOrder) }),
+  db.query.choreClaims.findMany(),
+  db.query.memberStatuses.findMany(),
 ]);
 
 const completions = await db.query.choreCompletions.findMany();
@@ -14,11 +16,16 @@ function isDone(choreId: string, frequency: 'daily' | 'weekly') {
   return completedKeys.has(`${choreId}:${currentPeriodKey(frequency)}`);
 }
 
-const unassigned = allChores.filter((c) => !c.memberId);
+const statusByMember = new Map(statuses.map((s) => [s.memberId, s.status]));
+const claimByChore = new Map(claims.map((c) => [c.choreId, members.find((m) => m.id === c.memberId)?.name ?? 'Claimed']));
+const claimedPoints = completions.reduce((sum, c) => sum + (allChores.find((ch) => ch.id === c.choreId)?.rewardPoints ?? 0), 0);
+const localDay = new Date().getDate();
+const effectiveMemberId = (chore: typeof allChores[number]) => chore.rotationMemberId && localDay % 2 === 0 ? chore.rotationMemberId : chore.memberId;
+const unassigned = allChores.filter((c) => c.bounty || !effectiveMemberId(c));
 const byMember = members
   .map((member) => ({
     member,
-    items: allChores.filter((c) => c.memberId === member.id),
+    items: allChores.filter((c) => effectiveMemberId(c) === member.id && !c.bounty),
   }))
   .filter((group) => group.items.length > 0);
 ---
@@ -28,6 +35,11 @@ const byMember = members
     <span aria-hidden="true">✅</span> Chores
     <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="chore-dialog">＋ Add</button>
   </h2>
+  <div class="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-success-soft px-4 py-3 text-sm text-fg">
+    <span class="text-lg" aria-hidden="true">⭐</span><strong>{claimedPoints} family points earned</strong>
+    <span class="text-fg-muted">· complete chores to keep your streak growing</span>
+  </div>
+  {members.length > 0 && <div class="mb-4 flex flex-wrap gap-2">{members.map((member) => <label class="flex items-center gap-2 rounded-full bg-surface-2 px-3 py-2 text-sm"><span class="font-medium">{member.name}</span><select class="rounded-full bg-surface px-2 py-1 text-xs" data-member-status={member.id}><option selected={!statusByMember.get(member.id)} value="Available">Available</option><option selected={statusByMember.get(member.id) === 'On my way home'}>On my way home</option><option selected={statusByMember.get(member.id) === 'At practice'}>At practice</option><option selected={statusByMember.get(member.id) === 'Working late'}>Working late</option></select></label>)}</div>}
   <div class="grid gap-4 sm:grid-cols-2">
     {
       byMember.map((group) => {
@@ -69,8 +81,8 @@ const byMember = members
     }
     {
       unassigned.length > 0 && (
-        <div class="rounded-2xl bg-surface-2/60 p-3 ring-1 ring-line-subtle">
-          <div class="mb-2 font-medium text-fg-muted">General</div>
+          <div class="rounded-2xl bg-surface-2/60 p-3 ring-1 ring-line-subtle">
+            <div class="mb-2 font-medium text-fg-muted">Household Bounty</div>
           <ul class="space-y-0.5">
             {unassigned.map((chore) => (
               <li>
@@ -81,10 +93,9 @@ const byMember = members
                     checked={isDone(chore.id, chore.frequency)}
                     data-chore-id={chore.id}
                   />
-                  <span class="chore-title" data-done={isDone(chore.id, chore.frequency)}>
-                    {chore.title}
-                  </span>
-                </label>
+                    <span class="min-w-0 flex-1"><span class="chore-title" data-done={isDone(chore.id, chore.frequency)}>{chore.title}</span><span class="ml-2 text-xs text-fg-muted">{chore.rewardPoints} pts{chore.rewardCents ? ` · $${(chore.rewardCents / 100).toFixed(2)}` : ''}</span></span>
+                  </label>
+                  {chore.bounty && <div class="ml-9 flex items-center gap-2 pb-2 text-xs text-fg-muted"><span>{claimByChore.get(chore.id) ? `Claimed by ${claimByChore.get(chore.id)}` : 'Extra points for a volunteer'}</span>{!claimByChore.has(chore.id) && <select class="rounded-lg bg-surface px-2 py-1" data-claim-chore={chore.id}><option value="">Claim as…</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}</select>}</div>}
               </li>
             ))}
           </ul>
@@ -136,6 +147,10 @@ const byMember = members
           body: JSON.stringify({ completed }),
         });
         if (!res.ok) throw new Error('Request failed');
+        if (completed) {
+          checkbox.closest('label')?.classList.add('chore-celebrate');
+          window.setTimeout(() => checkbox.closest('label')?.classList.remove('chore-celebrate'), 1100);
+        }
       } catch {
         checkbox.checked = !completed;
         titleEl?.setAttribute('data-done', String(!completed));
@@ -145,4 +160,18 @@ const byMember = members
       }
     });
   });
+  Array.from(document.querySelectorAll('[data-member-status]')).forEach((node) => { const select = node as unknown as HTMLSelectElement; select.addEventListener('change', async () => {
+    await fetch('/api/dashboard/members/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId: select.dataset.memberStatus, status: select.value }) });
+  }); });
+  Array.from(document.querySelectorAll('[data-claim-chore]')).forEach((node) => { const select = node as unknown as HTMLSelectElement; select.addEventListener('change', async () => {
+    if (!select.value) return;
+    const response = await fetch('/api/dashboard/chores/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ choreId: select.dataset.claimChore, memberId: select.value }) });
+    if (response.ok) location.reload();
+  }); });
 </script>
+
+<style>
+  .chore-celebrate { animation: chore-pop .65s ease; }
+  @keyframes chore-pop { 45% { transform: scale(1.04); background: var(--color-success-soft); } }
+  @media (prefers-reduced-motion: reduce) { .chore-celebrate { animation: none; } }
+</style>

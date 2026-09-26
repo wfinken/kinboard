@@ -23,26 +23,18 @@ const WIDGET_COMPONENTS: Record<DashboardWidgetId, (_props: Record<string, never
 // Calendar reads best as the full-width hero row (it's laid out as day
 // columns); chores reads well at two columns; everything else is happy at
 // one. Order/subset is otherwise fully admin-configurable.
-const SPAN_CLASS: Record<DashboardWidgetId, string> = {
-  clock: 'lg:col-span-1',
-  weather: 'lg:col-span-2',
-  calendar: 'lg:col-span-3',
-  chores: 'lg:col-span-2',
-  meals: 'lg:col-span-1',
-  notes: 'lg:col-span-1',
-};
 ---
 
 <Layout title="Dashboard" refreshSeconds={settings.refreshSeconds} theme={settings.theme}>
   {/* Generous side padding doubles as a safe-area margin for TVs that
      overscan/crop the edges of the screen. */}
   <div class="mx-auto max-w-7xl px-8 py-8 sm:px-10 lg:px-12">
-    <div class="grid gap-5 lg:grid-cols-3">
+    <div class="dashboard-grid grid gap-5 lg:grid-cols-3" data-dashboard-grid>
       {
         settings.widgetOrder.map((id) => {
           const Widget = WIDGET_COMPONENTS[id];
           return (
-            <div class={SPAN_CLASS[id]}>
+            <div class={`${settings.widgetSizes[id] === '2x2' ? 'widget-2x2' : settings.widgetSizes[id] === '2x1' ? 'widget-2x1' : 'widget-1x1'} dashboard-tile`} data-widget={id} draggable="true" tabindex="0" aria-label={`${id} widget; drag to rearrange`}>
               <Widget />
             </div>
           );
@@ -58,3 +50,44 @@ const SPAN_CLASS: Record<DashboardWidgetId, string> = {
     }
   </div>
 </Layout>
+
+<style>
+  .dashboard-grid { grid-auto-flow: dense; }
+  .widget-1x1 { grid-column: span 1; }
+  .widget-2x1 { grid-column: span 2; }
+  .widget-2x2 { grid-column: span 3; }
+  @media (max-width: 1023px) {
+    .widget-2x1, .widget-2x2 { grid-column: 1 / -1; }
+  }
+  .dashboard-tile { min-width: 0; }
+  .dashboard-tile.is-dragging { opacity: .45; }
+  .dashboard-tile.drop-target { outline: 2px dashed var(--color-accent); outline-offset: 4px; }
+</style>
+
+<script>
+  const grid = document.querySelector<HTMLElement>('[data-dashboard-grid]');
+  let dragging: HTMLElement | null = null;
+  grid?.querySelectorAll<HTMLElement>('[data-widget]').forEach((tile) => {
+    tile.addEventListener('dragstart', (event) => {
+      dragging = tile;
+      tile.classList.add('is-dragging');
+      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+    });
+    tile.addEventListener('dragend', () => {
+      tile.classList.remove('is-dragging');
+      grid.querySelectorAll('.drop-target').forEach((node) => node.classList.remove('drop-target'));
+    });
+    tile.addEventListener('dragover', (event) => { event.preventDefault(); if (tile !== dragging) tile.classList.add('drop-target'); });
+    tile.addEventListener('dragleave', () => tile.classList.remove('drop-target'));
+    tile.addEventListener('drop', async (event) => {
+      event.preventDefault();
+      if (!dragging || dragging === tile) return;
+      const children = [...grid.children];
+      if (children.indexOf(dragging) < children.indexOf(tile)) grid.insertBefore(dragging, tile.nextSibling);
+      else grid.insertBefore(dragging, tile);
+      tile.classList.remove('drop-target');
+      const order = [...grid.querySelectorAll<HTMLElement>('[data-widget]')].map((node) => node.dataset.widget);
+      await fetch('/api/dashboard/widgets/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
+    });
+  });
+</script>

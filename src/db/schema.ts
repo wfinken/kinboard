@@ -100,6 +100,10 @@ export const chores = sqliteTable('chore', {
     .notNull()
     .default('daily'),
   sortOrder: integer('sort_order').notNull().default(0),
+  rotationMemberId: text('rotation_member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+  rewardPoints: integer('reward_points').notNull().default(1),
+  rewardCents: integer('reward_cents').notNull().default(0),
+  bounty: integer('bounty', { mode: 'boolean' }).notNull().default(false),
 });
 
 // One row per (chore, period key) marks completion. periodKey is an ISO date
@@ -117,6 +121,18 @@ export const choreCompletions = sqliteTable(
   (cc) => [primaryKey({ columns: [cc.choreId, cc.periodKey] })],
 );
 
+export const choreClaims = sqliteTable('chore_claim', {
+  choreId: text('chore_id').primaryKey().references(() => chores.id, { onDelete: 'cascade' }),
+  memberId: text('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
+  claimedAt: integer('claimed_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+});
+
+export const memberStatuses = sqliteTable('member_status', {
+  memberId: text('member_id').primaryKey().references(() => householdMembers.id, { onDelete: 'cascade' }),
+  status: text('status').notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+});
+
 export const meals = sqliteTable('meal', {
   id: text('id')
     .primaryKey()
@@ -133,6 +149,8 @@ export const stickyNotes = sqliteTable('sticky_note', {
   content: text('content').notNull(),
   color: text('color').notNull().default('#facc15'),
   authorName: text('author_name'),
+  mediaUrl: text('media_url'),
+  mediaType: text('media_type', { enum: ['image', 'audio', 'drawing'] }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -154,4 +172,8 @@ export const dashboardSettings = sqliteTable('dashboard_settings', {
   refreshSeconds: integer('refresh_seconds').notNull().default(300),
   theme: text('theme', { enum: ['light', 'dark'] }).notNull().default('dark'),
   timezone: text('timezone').notNull().default('auto'),
+  widgetSizes: text('widget_sizes', { mode: 'json' })
+    .notNull()
+    .$type<Partial<Record<DashboardWidgetId, '1x1' | '2x1' | '2x2'>>>()
+    .default(sql`'{"clock":"1x1","weather":"2x1","calendar":"2x2","meals":"1x1","chores":"2x1","notes":"1x1"}'`),
 });
