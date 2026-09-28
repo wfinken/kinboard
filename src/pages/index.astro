@@ -6,10 +6,14 @@ import CalendarWidget from '../components/CalendarWidget.astro';
 import TaskList from '../components/TaskList.astro';
 import MealPlanWidget from '../components/MealPlanWidget.astro';
 import StickyNotes from '../components/StickyNotes.astro';
+import AllowanceWidget from '../components/AllowanceWidget.astro';
 import { getDashboardSettings } from '../lib/settings';
 import type { DashboardWidgetId } from '../db/schema';
 
-const settings = await getDashboardSettings();
+const familyId = Astro.locals.familyId;
+if (!familyId) return Astro.redirect('/welcome');
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const settings = await getDashboardSettings(familyId);
 
 const WIDGET_COMPONENTS: Record<DashboardWidgetId, (_props: Record<string, never>) => unknown> = {
   clock: ClockWidget,
@@ -17,6 +21,7 @@ const WIDGET_COMPONENTS: Record<DashboardWidgetId, (_props: Record<string, never
   calendar: CalendarWidget,
   meals: MealPlanWidget,
   chores: TaskList,
+  allowance: AllowanceWidget,
   notes: StickyNotes,
 };
 

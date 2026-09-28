@@ -67,14 +67,14 @@ export async function getGoogleAccessToken(userId: string): Promise<string | nul
 
 /** Fetches events in [timeMin, timeMax) across all enabled calendars for a user. */
 export async function fetchUpcomingEvents(
-  userId: string,
+  familyId: string,
   timeMin: Date,
   timeMax: Date,
 ): Promise<CalendarEvent[]> {
-  const accessToken = await getGoogleAccessToken(userId);
   const localEvents = await db
     .select({ event: calendarEvents, member: householdMembers })
     .from(calendarEvents)
+    .where(eq(calendarEvents.familyId, familyId))
     .leftJoin(householdMembers, eq(calendarEvents.memberId, householdMembers.id));
   const local: CalendarEvent[] = localEvents
     .filter(({ event }) => event.start < timeMax.toISOString().slice(0, 19) && event.end >= timeMin.toISOString().slice(0, 19))
@@ -88,56 +88,63 @@ export async function fetchUpcomingEvents(
       color: member?.color ?? '#a78bfa',
       memberName: member?.name,
     }));
-  if (!accessToken) return local;
 
   const enabledCalendars = await db.query.calendars.findMany({
-    where: and(eq(calendars.userId, userId), eq(calendars.enabled, true)),
+    where: and(eq(calendars.familyId, familyId), eq(calendars.enabled, true)),
   });
 
-  const results = await Promise.all(
-    enabledCalendars.map(async (cal) => {
-      const url = new URL(
-        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.googleCalendarId)}/events`,
-      );
-      url.searchParams.set('timeMin', timeMin.toISOString());
-      url.searchParams.set('timeMax', timeMax.toISOString());
-      url.searchParams.set('singleEvents', 'true');
-      url.searchParams.set('orderBy', 'startTime');
+  const calendarsByUser = new Map<string, typeof enabledCalendars>();
+  for (const calendar of enabledCalendars) {
+    const userCalendars = calendarsByUser.get(calendar.userId) ?? [];
+    userCalendars.push(calendar);
+    calendarsByUser.set(calendar.userId, userCalendars);
+  }
 
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+  const results = await Promise.all([...calendarsByUser].map(async ([userId, userCalendars]) => {
+    const accessToken = await getGoogleAccessToken(userId);
+    if (!accessToken) return [];
+    return Promise.all(userCalendars.map(async (cal) => {
+      try {
+        const url = new URL(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.googleCalendarId)}/events`,
+        );
+        url.searchParams.set('timeMin', timeMin.toISOString());
+        url.searchParams.set('timeMax', timeMax.toISOString());
+        url.searchParams.set('singleEvents', 'true');
+        url.searchParams.set('orderBy', 'startTime');
 
-      if (!res.ok) {
-        console.error(`Google events request failed for calendar ${cal.googleCalendarId}: ${res.status}`);
-        return [];
-      }
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+        if (!res.ok) {
+          console.error(`Google events request failed for calendar ${cal.googleCalendarId}: ${res.status}`);
+          return [];
+        }
 
-      const data = (await res.json()) as {
-        items?: Array<{
-          id: string;
-          summary?: string;
-          start?: { date?: string; dateTime?: string };
-          end?: { date?: string; dateTime?: string };
-        }>;
-      };
+        const data = (await res.json()) as {
+          items?: Array<{
+            id: string;
+            summary?: string;
+            start?: { date?: string; dateTime?: string };
+            end?: { date?: string; dateTime?: string };
+          }>;
+        };
 
-      return (data.items ?? []).map((item): CalendarEvent => {
-        const allDay = Boolean(item.start?.date);
-        return {
+        return (data.items ?? []).map((item): CalendarEvent => ({
           id: item.id,
           calendarId: cal.id,
           title: item.summary ?? '(No title)',
           start: item.start?.dateTime ?? item.start?.date ?? '',
           end: item.end?.dateTime ?? item.end?.date ?? '',
-          allDay,
+          allDay: Boolean(item.start?.date),
           color: cal.color,
-        };
-      });
-    }),
-  );
+        }));
+      } catch (error) {
+        console.error(`Google events request failed for calendar ${cal.googleCalendarId}:`, error);
+        return [];
+      }
+    }));
+  }));
 
-  return [...local, ...results.flat()].sort((a, b) => a.start.localeCompare(b.start));
+  return [...local, ...results.flat(2)].sort((a, b) => a.start.localeCompare(b.start));
 }
 
 /** Lists the Google Calendars available to the user's account (for admin setup). */
@@ -162,4 +169,31 @@ export async function listGoogleCalendars(userId: string) {
   };
 
   return data.items ?? [];
+}
+
+/** Creates an event in a Google calendar using the user's existing token.
+ *  The caller should only offer calendars owned by that user. */
+export async function createGoogleCalendarEvent(
+  userId: string,
+  googleCalendarId: string,
+  event: { title: string; start: string; end: string; allDay: boolean },
+) {
+  const accessToken = await getGoogleAccessToken(userId);
+  if (!accessToken) throw new Error('Google access is unavailable. Please reconnect your Google account.');
+
+  const body = {
+    summary: event.title,
+    start: event.allDay ? { date: event.start.slice(0, 10) } : { dateTime: new Date(event.start).toISOString() },
+    end: event.allDay ? { date: event.end.slice(0, 10) } : { dateTime: new Date(event.end).toISOString() },
+  };
+  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(googleCalendarId)}/events`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const responseBody = await res.text().catch(() => '');
+    throw new Error(`Google Calendar event creation failed (${res.status}): ${responseBody.slice(0, 300)}`);
+  }
+  return res.json();
 }

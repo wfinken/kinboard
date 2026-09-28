@@ -14,6 +14,29 @@ export const users = sqliteTable('user', {
   image: text('image'),
 });
 
+export const families = sqliteTable('family', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text('name').notNull(),
+  ownerUserId: text('owner_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+  dashboardToken: text('dashboard_token').unique(),
+  dashboardTokenExpiresAt: integer('dashboard_token_expires_at', { mode: 'timestamp_ms' }),
+});
+
+export const familyMemberships = sqliteTable('family_membership', {
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: text('role', { enum: ['owner', 'member'] }).notNull().default('member'),
+  joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+}, (membership) => [primaryKey({ columns: [membership.familyId, membership.userId] })]);
+
+export const familyInvites = sqliteTable('family_invite', {
+  token: text('token').primaryKey(),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+  createdBy: text('created_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+});
+
 export const accounts = sqliteTable(
   'account',
   {
@@ -63,6 +86,7 @@ export const householdMembers = sqliteTable('household_member', {
   name: text('name').notNull(),
   color: text('color').notNull().default('#38bdf8'),
   sortOrder: integer('sort_order').notNull().default(0),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
 });
 
 export const calendars = sqliteTable('calendar', {
@@ -72,6 +96,7 @@ export const calendars = sqliteTable('calendar', {
   userId: text('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
   googleCalendarId: text('google_calendar_id').notNull(),
   name: text('name').notNull(),
   color: text('color').notNull().default('#a78bfa'),
@@ -80,6 +105,7 @@ export const calendars = sqliteTable('calendar', {
 
 export const calendarEvents = sqliteTable('calendar_event', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   start: text('start').notNull(),
   end: text('end').notNull(),
@@ -91,6 +117,7 @@ export const chores = sqliteTable('chore', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   category: text('category').notNull().default('General'),
   memberId: text('member_id').references(() => householdMembers.id, {
@@ -104,6 +131,30 @@ export const chores = sqliteTable('chore', {
   rewardPoints: integer('reward_points').notNull().default(1),
   rewardCents: integer('reward_cents').notNull().default(0),
   bounty: integer('bounty', { mode: 'boolean' }).notNull().default(false),
+  allowanceEnabled: integer('allowance_enabled', { mode: 'boolean' }).notNull().default(false),
+  maxBidCents: integer('max_bid_cents').notNull().default(0),
+});
+
+export const allowanceLedger = sqliteTable('allowance_ledger', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ['deposit', 'payout'] }).notNull(),
+  amountCents: integer('amount_cents').notNull(),
+  memberId: text('member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+  choreId: text('chore_id').references(() => chores.id, { onDelete: 'set null' }),
+  note: text('note').notNull().default(''),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+});
+
+export const allowanceBids = sqliteTable('allowance_bid', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+  choreId: text('chore_id').notNull().references(() => chores.id, { onDelete: 'cascade' }),
+  memberId: text('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
+  amountCents: integer('amount_cents').notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected', 'paid'] }).notNull().default('pending'),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+  decidedAt: integer('decided_at', { mode: 'timestamp_ms' }),
 });
 
 // One row per (chore, period key) marks completion. periodKey is an ISO date
@@ -115,6 +166,7 @@ export const choreCompletions = sqliteTable(
     choreId: text('chore_id')
       .notNull()
       .references(() => chores.id, { onDelete: 'cascade' }),
+    familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
     periodKey: text('period_key').notNull(),
     completedAt: integer('completed_at', { mode: 'timestamp_ms' }).notNull(),
   },
@@ -122,12 +174,14 @@ export const choreCompletions = sqliteTable(
 );
 
 export const choreClaims = sqliteTable('chore_claim', {
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
   choreId: text('chore_id').primaryKey().references(() => chores.id, { onDelete: 'cascade' }),
   memberId: text('member_id').notNull().references(() => householdMembers.id, { onDelete: 'cascade' }),
   claimedAt: integer('claimed_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 });
 
 export const memberStatuses = sqliteTable('member_status', {
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
   memberId: text('member_id').primaryKey().references(() => householdMembers.id, { onDelete: 'cascade' }),
   status: text('status').notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
@@ -137,6 +191,7 @@ export const meals = sqliteTable('meal', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
   date: text('date').notNull(), // ISO date YYYY-MM-DD
   mealType: text('meal_type', { enum: ['breakfast', 'lunch', 'dinner'] }).notNull(),
   description: text('description').notNull().default(''),
@@ -146,6 +201,7 @@ export const stickyNotes = sqliteTable('sticky_note', {
   id: text('id')
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   color: text('color').notNull().default('#facc15'),
   authorName: text('author_name'),
@@ -156,13 +212,13 @@ export const stickyNotes = sqliteTable('sticky_note', {
     .$defaultFn(() => new Date()),
 });
 
-export const DASHBOARD_WIDGETS = ['clock', 'weather', 'calendar', 'meals', 'chores', 'notes'] as const;
+export const DASHBOARD_WIDGETS = ['clock', 'weather', 'calendar', 'meals', 'chores', 'allowance', 'notes'] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGETS)[number];
 
 // Single-household settings singleton (id is always 'default'). Multi-household
 // support in Phase 3 will key this by household id instead.
 export const dashboardSettings = sqliteTable('dashboard_settings', {
-  id: text('id').primaryKey().default('default'),
+  id: text('id').primaryKey().references(() => families.id, { onDelete: 'cascade' }),
   // Ordered list of enabled widget ids; anything from DASHBOARD_WIDGETS not
   // present here is simply hidden.
   widgetOrder: text('widget_order', { mode: 'json' })
@@ -175,5 +231,5 @@ export const dashboardSettings = sqliteTable('dashboard_settings', {
   widgetSizes: text('widget_sizes', { mode: 'json' })
     .notNull()
     .$type<Partial<Record<DashboardWidgetId, '1x1' | '2x1' | '2x2'>>>()
-    .default(sql`'{"clock":"1x1","weather":"2x1","calendar":"2x2","meals":"1x1","chores":"2x1","notes":"1x1"}'`),
+    .default(sql`'{"clock":"1x1","weather":"2x1","calendar":"2x2","meals":"1x1","chores":"2x1","allowance":"1x1","notes":"1x1"}'`),
 });

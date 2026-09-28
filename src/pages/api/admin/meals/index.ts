@@ -3,33 +3,35 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../../../db/client';
 import { meals } from '../../../../db/schema';
 
-const MEAL_KEY = /^meal_(\d{4}-\d{2}-\d{2})_(breakfast|lunch|dinner)$/;
+const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const VALID_TYPES = new Set(['breakfast', 'lunch', 'dinner']);
 
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const form = await request.formData();
+  const familyId = locals.familyId!;
+  const deleteId = form.get('deleteId');
 
-  for (const [key, value] of form.entries()) {
-    const match = MEAL_KEY.exec(key);
-    if (!match) continue;
+  if (typeof deleteId === 'string' && deleteId) {
+    await db.delete(meals).where(and(eq(meals.id, deleteId), eq(meals.familyId, familyId)));
+    return redirect('/admin/meals');
+  }
 
-    const date = match[1];
-    const mealType = match[2] as 'breakfast' | 'lunch' | 'dinner';
-    const description = String(value).trim();
+  const date = String(form.get('date') ?? '');
+  const mealType = String(form.get('mealType') ?? '');
+  const description = String(form.get('description') ?? '').trim();
+  if (!VALID_DATE.test(date) || !VALID_TYPES.has(mealType) || !description || description.length > 240) {
+    return redirect('/admin/meals');
+  }
 
-    const existing = await db.query.meals.findFirst({
-      where: and(eq(meals.date, date), eq(meals.mealType, mealType)),
-    });
+  const normalizedType = mealType as 'breakfast' | 'lunch' | 'dinner';
+  const existing = await db.query.meals.findFirst({
+    where: and(eq(meals.familyId, familyId), eq(meals.date, date), eq(meals.mealType, normalizedType)),
+  });
 
-    if (!description) {
-      if (existing) await db.delete(meals).where(eq(meals.id, existing.id));
-      continue;
-    }
-
-    if (existing) {
-      await db.update(meals).set({ description }).where(eq(meals.id, existing.id));
-    } else {
-      await db.insert(meals).values({ date, mealType, description });
-    }
+  if (existing) {
+    await db.update(meals).set({ description }).where(and(eq(meals.id, existing.id), eq(meals.familyId, familyId)));
+  } else {
+    await db.insert(meals).values({ familyId, date, mealType: normalizedType, description });
   }
 
   return redirect('/admin/meals');

@@ -6,7 +6,8 @@ import { listGoogleCalendars } from '../../../../lib/google-calendar';
 
 export const POST: APIRoute = async ({ locals, redirect }) => {
   const userId = locals.session?.user?.id;
-  if (!userId) return redirect('/admin/login');
+  const familyId = locals.familyId;
+  if (!userId || !familyId) return redirect('/admin/login');
 
   let googleCalendars: Awaited<ReturnType<typeof listGoogleCalendars>>;
   try {
@@ -18,11 +19,12 @@ export const POST: APIRoute = async ({ locals, redirect }) => {
 
   for (const cal of googleCalendars) {
     const existing = await db.query.calendars.findFirst({
-      where: and(eq(calendars.userId, userId), eq(calendars.googleCalendarId, cal.id)),
+      where: and(eq(calendars.familyId, familyId), eq(calendars.userId, userId), eq(calendars.googleCalendarId, cal.id)),
     });
 
     if (!existing) {
       await db.insert(calendars).values({
+        familyId,
         userId,
         googleCalendarId: cal.id,
         name: cal.summary,

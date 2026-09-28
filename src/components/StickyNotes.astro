@@ -1,9 +1,11 @@
 ---
+const familyId = Astro.locals.familyId!;
 import { db } from '../db/client';
 import { desc } from 'drizzle-orm';
 import { stickyNotes } from '../db/schema';
 
 const notes = await db.query.stickyNotes.findMany({
+  where: (n, { eq }) => eq(n.familyId, familyId),
   orderBy: desc(stickyNotes.createdAt),
   limit: 6,
 });

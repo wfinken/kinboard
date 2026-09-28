@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { db } from '../../../../db/client';
 import { stickyNotes } from '../../../../db/schema';
 
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const form = await request.formData();
   const drawing = String(form.get('drawing') ?? '').trim();
   const media = form.get('media');
@@ -17,7 +17,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const authorName = String(form.get('authorName') ?? '').trim() || null;
 
   if (content) {
-    await db.insert(stickyNotes).values({ content, color, authorName, mediaUrl, mediaType });
+    await db.insert(stickyNotes).values({ familyId: locals.familyId!, content, color, authorName, mediaUrl, mediaType });
   }
 
   return redirect(String(form.get('returnTo') ?? '/admin/notes'));

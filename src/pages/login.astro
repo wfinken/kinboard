@@ -9,10 +9,10 @@ const csrfResponse = await Auth(new Request(csrfUrl, { headers: Astro.request.he
 const { csrfToken } = (await csrfResponse.json()) as { csrfToken: string };
 const requestedCallback = Astro.url.searchParams.get('callbackUrl');
 const callbackUrl = requestedCallback && requestedCallback !== '/' ? requestedCallback : '/welcome';
-const { theme } = await getDashboardSettings();
+const { theme } = await getDashboardSettings(Astro.locals.familyId);
 ---
 
-<Layout title="Welcome" theme={theme}>
+<Layout title="Welcome" theme={theme} minimal>
   <main class="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12">
     <div class="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-accent/20 blur-3xl"></div>
     <div class="pointer-events-none absolute -bottom-32 -right-16 h-80 w-80 rounded-full bg-success/10 blur-3xl"></div>

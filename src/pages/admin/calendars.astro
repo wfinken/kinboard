@@ -1,13 +1,16 @@
 ---
+const familyId = Astro.locals.familyId!;
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import ColorPicker from '../../components/ColorPicker.astro';
 import { db } from '../../db/client';
 import { calendars } from '../../db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 const userId = Astro.locals.session?.user?.id!;
-const myCalendars = await db.query.calendars.findMany({ where: eq(calendars.userId, userId) });
-const members = await db.query.householdMembers.findMany({ orderBy: (members, { asc }) => [asc(members.sortOrder)] });
+const myCalendars = await db.query.calendars.findMany({ where: and(eq(calendars.userId, userId), eq(calendars.familyId, familyId)) });
+const members = await db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (members, { asc }) => [asc(members.sortOrder)] });
+const googleAccount = await db.query.accounts.findFirst({ where: (a, { and, eq }) => and(eq(a.userId, userId), eq(a.provider, 'google')) });
+const hasEventWriteScope = googleAccount?.scope?.split(/\s+/).includes('https://www.googleapis.com/auth/calendar.events') ?? false;
 
 const error = Astro.url.searchParams.get('error');
 const synced = Astro.url.searchParams.get('synced');
@@ -26,6 +29,7 @@ const synced = Astro.url.searchParams.get('synced');
   <section class="mb-8 rounded-2xl bg-surface p-5 shadow-card">
     <h2 class="mb-1 text-lg font-semibold">Add family event</h2>
     <p class="mb-4 text-sm text-fg-subtle">Events appear on the dashboard in the selected family member’s color.</p>
+    {!hasEventWriteScope && <p class="mb-4 text-sm text-fg-muted">Connect Google event access to create events directly on a synced calendar. <a class="font-medium text-accent hover:underline" href={`/api/admin/calendars/connect?returnTo=${encodeURIComponent('/admin/calendars')}`}>Connect Google Calendar</a></p>}
     <form method="POST" action="/api/admin/events" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       <input name="title" required placeholder="Event title" class="rounded-xl bg-surface-2 px-3 py-2" />
       <input name="start" type="datetime-local" required class="rounded-xl bg-surface-2 px-3 py-2" />

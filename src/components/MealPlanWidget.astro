@@ -1,7 +1,8 @@
 ---
+const familyId = Astro.locals.familyId!;
 import { db } from '../db/client';
 import { meals } from '../db/schema';
-import { gte, lte, and } from 'drizzle-orm';
+import { gte, lte, and, eq } from 'drizzle-orm';
 import { parseDateKey, householdTimezone, zonedCalendarDate, dateKeyUTC } from '../lib/dates';
 
 const today = zonedCalendarDate(new Date(), householdTimezone());
@@ -11,60 +12,26 @@ weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
 const weekEndKey = dateKeyUTC(weekEnd);
 
 const weekMeals = await db.query.meals.findMany({
-  where: and(gte(meals.date, todayKey), lte(meals.date, weekEndKey)),
-});
-
-const mealsByDate = weekMeals.reduce<Record<string, Record<string, string>>>((acc, meal) => {
-  acc[meal.date] ??= {};
-  acc[meal.date][meal.mealType] = meal.description;
-  return acc;
-}, {});
-
-const todayMeals = mealsByDate[todayKey] ?? {};
-
-const weekDays = Array.from({ length: 7 }, (_, i) => {
-  const d = new Date(today);
-  d.setUTCDate(d.getUTCDate() + i);
-  return dateKeyUTC(d);
+  where: and(eq(meals.familyId, familyId), gte(meals.date, todayKey), lte(meals.date, weekEndKey)),
 });
 
 const MEAL_ICONS = { breakfast: '🍳', lunch: '🥪', dinner: '🍽️' } as const;
+const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' } as const;
 ---
 
 <div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6">
   <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold">
-    <span aria-hidden="true">🍽️</span> Meals Today
+    <span aria-hidden="true">🍽️</span> Meal Plan
   </h2>
-  <div class="grid grid-cols-3 gap-3 text-center">
-    {
-      (['breakfast', 'lunch', 'dinner'] as const).map((type) => (
-        <div class="rounded-2xl bg-surface-2/60 p-3">
-          <div class="text-lg">{MEAL_ICONS[type]}</div>
-          <div class="mt-0.5 text-xs uppercase tracking-wide text-fg-subtle">{type}</div>
-          <div class={`mt-1 text-sm ${todayMeals[type] ? '' : 'text-fg-muted'}`}>
-            {todayMeals[type] || 'Not planned'}
-          </div>
-        </div>
-      ))
-    }
-  </div>
-  <h3 class="mb-2 mt-5 text-sm font-medium uppercase tracking-wide text-fg-subtle">Week Ahead</h3>
-  <ul class="space-y-1 text-sm">
-    {
-      weekDays.slice(1).map((date) => {
-        const dayMeals = mealsByDate[date];
-        const summary = dayMeals
-          ? Object.values(dayMeals).filter(Boolean).join(' · ')
-          : 'Not planned';
-        return (
-          <li class="flex justify-between gap-4">
-            <span class="font-medium">
-              {parseDateKey(date).toLocaleDateString([], { weekday: 'short' })}
-            </span>
-            <span class="truncate text-fg-muted">{summary}</span>
-          </li>
-        );
-      })
-    }
-  </ul>
+  {weekMeals.length ? <ul class="space-y-2">
+    {weekMeals.map((meal) => {
+      const isToday = meal.date === todayKey;
+      const day = parseDateKey(meal.date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+      return <li class="flex items-center gap-3 rounded-xl bg-surface-2/60 px-3 py-2.5">
+        <span aria-hidden="true" class="text-lg">{MEAL_ICONS[meal.mealType]}</span>
+        <span class="min-w-0 flex-1"><span class="block truncate text-sm font-medium">{meal.description}</span><span class="text-xs text-fg-subtle">{isToday ? 'Today' : day} · {MEAL_LABELS[meal.mealType]}</span></span>
+      </li>;
+    })}
+  </ul> : <div class="rounded-2xl bg-surface-2/60 px-4 py-6 text-center"><p class="text-sm font-medium">No meals planned this week</p><p class="mt-1 text-xs text-fg-muted">Add a meal whenever you decide what’s on the menu.</p></div>}
+  <a href="/admin/meals" class="mt-4 inline-flex text-sm font-medium text-accent hover:underline">Plan a meal <span class="ml-1" aria-hidden="true">→</span></a>
 </div>

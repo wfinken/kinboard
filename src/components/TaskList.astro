@@ -1,15 +1,17 @@
 ---
+const familyId = Astro.locals.familyId ?? Astro.url.searchParams.get('family');
+if (!familyId) throw new Error('Family context missing from dashboard request');
 import { db } from '../db/client';
 import { currentPeriodKey } from '../lib/chores';
 
 const [allChores, members, claims, statuses] = await Promise.all([
-  db.query.chores.findMany({ orderBy: (c, { asc }) => asc(c.sortOrder) }),
-  db.query.householdMembers.findMany({ orderBy: (m, { asc }) => asc(m.sortOrder) }),
-  db.query.choreClaims.findMany(),
-  db.query.memberStatuses.findMany(),
+  db.query.chores.findMany({ where: (c, { eq }) => eq(c.familyId, familyId), orderBy: (c, { asc }) => asc(c.sortOrder) }),
+  db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (m, { asc }) => asc(m.sortOrder) }),
+  db.query.choreClaims.findMany({ where: (c, { eq }) => eq(c.familyId, familyId) }),
+  db.query.memberStatuses.findMany({ where: (m, { eq }) => eq(m.familyId, familyId) }),
 ]);
 
-const completions = await db.query.choreCompletions.findMany();
+const completions = await db.query.choreCompletions.findMany({ where: (c, { eq }) => eq(c.familyId, familyId) });
 const completedKeys = new Set(completions.map((c) => `${c.choreId}:${c.periodKey}`));
 
 function isDone(choreId: string, frequency: 'daily' | 'weekly') {
@@ -30,7 +32,7 @@ const byMember = members
   .filter((group) => group.items.length > 0);
 ---
 
-<div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6" data-chore-list>
+<div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6" data-chore-list data-family-id={familyId}>
   <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold">
     <span aria-hidden="true">✅</span> Chores
     <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="chore-dialog">＋ Add</button>
@@ -141,7 +143,9 @@ const byMember = members
       titleEl?.setAttribute('data-done', String(completed));
       if (group) updateGroupCount(group);
       try {
-        const res = await fetch(`/api/dashboard/chores/${choreId}/toggle`, {
+        const familyId = document.querySelector<HTMLElement>('[data-chore-list]')?.dataset.familyId ?? '';
+        const familyQuery = new URLSearchParams({ family: familyId });
+        const res = await fetch(`/api/dashboard/chores/${choreId}/toggle?${familyQuery}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ completed }),
@@ -161,11 +165,13 @@ const byMember = members
     });
   });
   Array.from(document.querySelectorAll('[data-member-status]')).forEach((node) => { const select = node as unknown as HTMLSelectElement; select.addEventListener('change', async () => {
-    await fetch('/api/dashboard/members/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId: select.dataset.memberStatus, status: select.value }) });
+    const familyId = document.querySelector<HTMLElement>('[data-chore-list]')?.dataset.familyId ?? '';
+    await fetch(`/api/dashboard/members/status?family=${encodeURIComponent(familyId)}`,  { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId: select.dataset.memberStatus, status: select.value }) });
   }); });
   Array.from(document.querySelectorAll('[data-claim-chore]')).forEach((node) => { const select = node as unknown as HTMLSelectElement; select.addEventListener('change', async () => {
     if (!select.value) return;
-    const response = await fetch('/api/dashboard/chores/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ choreId: select.dataset.claimChore, memberId: select.value }) });
+    const familyId = document.querySelector<HTMLElement>('[data-chore-list]')?.dataset.familyId ?? '';
+    const response = await fetch(`/api/dashboard/chores/claim?family=${encodeURIComponent(familyId)}`,  { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ choreId: select.dataset.claimChore, memberId: select.value }) });
     if (response.ok) location.reload();
   }); });
 </script>

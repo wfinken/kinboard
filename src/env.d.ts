@@ -3,6 +3,9 @@
 declare namespace App {
   interface Locals {
     session?: import('@auth/core/types').Session | null;
+    familyId?: string | null;
+    family?: import('./db/schema').families.$inferSelect | null;
+    refreshDashboardCookie?: boolean;
   }
 }
 

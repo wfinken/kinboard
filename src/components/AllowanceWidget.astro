@@ -1,0 +1,59 @@
+---
+const familyId = Astro.locals.familyId ?? Astro.url.searchParams.get('family');
+if (!familyId) throw new Error('Family context missing from dashboard request');
+import { desc } from 'drizzle-orm';
+import { db } from '../db/client';
+import { allowanceBids } from '../db/schema';
+
+const [ledger, bids, choresOpen, members] = await Promise.all([
+  db.query.allowanceLedger.findMany({ where: (l, { eq }) => eq(l.familyId, familyId) }),
+  db.query.allowanceBids.findMany({ where: (b, { eq }) => eq(b.familyId, familyId), orderBy: desc(allowanceBids.createdAt) }),
+  db.query.chores.findMany({ where: (c, { eq, and }) => and(eq(c.familyId, familyId), eq(c.allowanceEnabled, true)), orderBy: (c, { asc }) => asc(c.sortOrder) }),
+  db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (m, { asc }) => asc(m.sortOrder) }),
+]);
+const totalCents = ledger.reduce((sum, row) => sum + (row.kind === 'deposit' ? row.amountCents : -row.amountCents), 0);
+const reservedCents = bids.filter((bid) => bid.status === 'approved').reduce((sum, bid) => sum + bid.amountCents, 0);
+const balanceCents = Math.max(0, totalCents - reservedCents);
+const memberById = new Map(members.map((member) => [member.id, member.name]));
+const bidsByChore = new Map<string, typeof bids>();
+for (const bid of bids) bidsByChore.set(bid.choreId, [...(bidsByChore.get(bid.choreId) ?? []), bid]);
+---
+
+<section class="rounded-3xl bg-surface p-5 shadow-card sm:p-6" data-allowance-widget data-family-id={familyId}>
+  <div class="mb-4 flex items-center gap-3">
+    <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-success-soft text-2xl" aria-hidden="true">💰</span>
+    <div><h2 class="text-lg font-semibold">Allowance</h2><p class="text-sm text-fg-muted">${(balanceCents / 100).toFixed(2)} available</p></div>
+    <a href="/admin/allowance" class="ml-auto rounded-full bg-surface-2 px-3 py-2 text-sm font-medium hover:bg-surface-3">Parent controls</a>
+  </div>
+  {choresOpen.length ? <ul class="space-y-3">{choresOpen.map((chore) => {
+    const choreBids = bidsByChore.get(chore.id) ?? [];
+    const approved = choreBids.find((bid) => bid.status === 'approved');
+    const pending = choreBids.find((bid) => bid.status === 'pending');
+    return <li class="rounded-2xl bg-surface-2/60 p-4">
+      <div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="font-semibold">{chore.title}</p><p class="text-sm text-fg-muted">Bid up to ${(chore.maxBidCents / 100).toFixed(2)}{approved ? ` · ${memberById.get(approved.memberId) ?? 'Family member'} approved for $${(approved.amountCents / 100).toFixed(2)}` : ''}</p></div>{pending && <span class="shrink-0 rounded-full bg-accent-soft px-3 py-1 text-xs font-medium text-fg">{choreBids.filter((bid) => bid.status === 'pending').length} bid{choreBids.filter((bid) => bid.status === 'pending').length === 1 ? '' : 's'} to review</span>}</div>
+      {!approved && balanceCents > 0 && members.length > 0 && <form class="mt-3 flex flex-wrap items-end gap-2" data-allowance-bid={chore.id} data-max={(chore.maxBidCents / 100).toFixed(2)}>
+        <label class="text-xs text-fg-muted">Family member<select name="memberId" required class="mt-1 block rounded-lg border border-line bg-surface px-2 py-2 text-sm">{members.map((member) => <option value={member.id}>{member.name}</option>)}</select></label>
+        <label class="text-xs text-fg-muted">Your bid ($)<input name="amount" type="number" min="0.01" max={(chore.maxBidCents / 100).toFixed(2)} step="0.01" required value={(Math.min(chore.maxBidCents, 100) / 100).toFixed(2)} class="mt-1 block w-28 rounded-lg border border-line bg-surface px-2 py-2 text-sm" /></label>
+        <button class="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover">Place bid</button>
+      </form>}
+    </li>;
+  })}</ul> : <p class="rounded-xl bg-surface-2/60 p-4 text-sm text-fg-muted">No chores are open for allowance bids. Parents can enable bidding in Chore settings.</p>}
+  <p class="mt-4 text-xs text-fg-subtle">Parent approval is required. Approved bids are paid from the pool when the chore is checked off.</p>
+</section>
+
+<script>
+  document.querySelectorAll('[data-allowance-bid]').forEach((node) => {
+    const form = node as unknown as HTMLFormElement;
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const amount = Number(data.get('amount'));
+      const max = Number(form.dataset.max);
+      if (!(amount > 0 && amount <= max)) { alert(`Enter a bid from $0.01 to $${max.toFixed(2)}.`); return; }
+      const familyId = document.querySelector<HTMLElement>('[data-allowance-widget]')?.dataset.familyId ?? '';
+      const response = await fetch(`/api/dashboard/allowance/bid?family=${encodeURIComponent(familyId)}`,  { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ choreId: form.dataset.allowanceBid, memberId: data.get('memberId'), amount }) });
+      if (response.ok) location.reload();
+      else alert(await response.text());
+    });
+  });
+</script>

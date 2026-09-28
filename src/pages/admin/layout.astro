@@ -3,7 +3,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getDashboardSettings, WIDGET_LABELS } from '../../lib/settings';
 import { DASHBOARD_WIDGETS } from '../../db/schema';
 
-const settings = await getDashboardSettings();
+const settings = await getDashboardSettings(Astro.locals.familyId);
 const displayOrder = [
   ...settings.widgetOrder,
   ...DASHBOARD_WIDGETS.filter((id) => !settings.widgetOrder.includes(id)),

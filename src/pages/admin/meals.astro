@@ -1,60 +1,59 @@
 ---
+const familyId = Astro.locals.familyId!;
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { db } from '../../db/client';
-import { and, gte, lte } from 'drizzle-orm';
 import { meals } from '../../db/schema';
+import { and, eq, gte } from 'drizzle-orm';
+import { householdTimezone, zonedCalendarDate, dateKeyUTC, parseDateKey } from '../../lib/dates';
 
-const today = new Date();
-const weekDays = Array.from({ length: 7 }, (_, i) => {
-  const d = new Date(today);
-  d.setDate(d.getDate() + i);
-  return d.toISOString().slice(0, 10);
+const today = zonedCalendarDate(new Date(), householdTimezone());
+const todayKey = dateKeyUTC(today);
+const plannedMeals = await db.query.meals.findMany({
+  where: and(eq(meals.familyId, familyId), gte(meals.date, todayKey)),
+  orderBy: (meal, { asc }) => [asc(meal.date), asc(meal.mealType)],
 });
-
-const weekMeals = await db.query.meals.findMany({
-  where: and(gte(meals.date, weekDays[0]), lte(meals.date, weekDays[6])),
-});
-
-const mealsByDate = weekMeals.reduce<Record<string, Record<string, string>>>((acc, meal) => {
-  acc[meal.date] ??= {};
-  acc[meal.date][meal.mealType] = meal.description;
-  return acc;
-}, {});
-
-const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
+const mealIcons = { breakfast: '🍳', lunch: '🥪', dinner: '🍽️' } as const;
+const mealLabels = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' } as const;
 ---
 
 <AdminLayout title="Meal Planner">
-  <form method="POST" action="/api/admin/meals" class="space-y-4">
-    {
-      weekDays.map((date) => (
-        <div class="rounded-2xl bg-surface p-4 shadow-card sm:p-5">
-          <div class="mb-2 font-medium">
-            {new Date(date).toLocaleDateString([], {
-              weekday: 'long',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </div>
-          <div class="grid gap-3 sm:grid-cols-3">
-            {mealTypes.map((type) => (
-              <div>
-                <label class="block text-xs uppercase tracking-wide text-fg-subtle">
-                  {type}
-                </label>
-                <input
-                  name={`meal_${date}_${type}`}
-                  value={mealsByDate[date]?.[type] ?? ''}
-                  class="w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      ))
-    }
-    <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
-      Save Week
-    </button>
-  </form>
+  <section class="mb-6 rounded-2xl border border-line-subtle bg-surface p-5 shadow-card sm:p-6">
+    <div class="mb-4">
+      <h2 class="text-base font-semibold">Plan a meal</h2>
+      <p class="mt-1 text-sm text-fg-muted">Add a meal whenever you’re ready. Unplanned days stay off the list.</p>
+    </div>
+    <form method="POST" action="/api/admin/meals" class="grid gap-3 sm:grid-cols-[1fr_1fr_2fr_auto] sm:items-end" data-meal-form>
+      <label class="block text-xs font-medium text-fg-muted">Day<input name="date" type="date" min={todayKey} required value={todayKey} class="mt-1.5 block w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm text-fg" /></label>
+      <label class="block text-xs font-medium text-fg-muted">Meal<select name="mealType" class="mt-1.5 block w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm text-fg"><option value="dinner">Dinner</option><option value="lunch">Lunch</option><option value="breakfast">Breakfast</option></select></label>
+      <label class="block text-xs font-medium text-fg-muted">What’s on the menu?<input name="description" required maxlength="240" placeholder="e.g. Tacos and salad" class="mt-1.5 block w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-sm text-fg placeholder:text-fg-subtle" /></label>
+      <button class="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-hover">＋ Add meal</button>
+    </form>
+  </section>
+
+  <section>
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-sm font-semibold">Upcoming meals</h2>
+      <span class="text-xs text-fg-subtle">{plannedMeals.length} planned</span>
+    </div>
+    {plannedMeals.length ? <ul class="space-y-2">
+      {plannedMeals.map((meal) => {
+        const day = parseDateKey(meal.date);
+        const dateLabel = day.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+        return <li class="flex flex-wrap items-center gap-3 rounded-2xl border border-line-subtle bg-surface px-4 py-3 shadow-card sm:px-5">
+          <div class="min-w-24"><p class="text-sm font-semibold">{dateLabel}</p>{meal.date === todayKey && <span class="text-[10px] font-medium uppercase tracking-wide text-accent">Today</span>}</div>
+          <span class="grid h-9 w-9 place-items-center rounded-xl bg-surface-2 text-lg" aria-hidden="true">{mealIcons[meal.mealType]}</span>
+          <span class="w-24 text-xs font-medium text-fg-muted">{mealLabels[meal.mealType]}</span>
+          <span class="min-w-[10rem] flex-1 text-sm">{meal.description}</span>
+          <form method="POST" action="/api/admin/meals" class="ml-auto">
+            <input type="hidden" name="deleteId" value={meal.id} />
+            <button class="rounded-lg px-3 py-2 text-xs font-medium text-fg-subtle hover:bg-danger-soft hover:text-danger" aria-label={`Remove ${mealLabels[meal.mealType]} on ${dateLabel}`}>Remove</button>
+          </form>
+        </li>;
+      })}
+    </ul> : <div class="rounded-2xl border border-dashed border-line bg-surface px-5 py-10 text-center">
+      <div class="text-3xl" aria-hidden="true">🍽️</div>
+      <h3 class="mt-3 text-sm font-semibold">Nothing planned yet</h3>
+      <p class="mt-1 text-sm text-fg-muted">Add a meal above whenever you decide what’s for dinner.</p>
+    </div>}
+  </section>
 </AdminLayout>

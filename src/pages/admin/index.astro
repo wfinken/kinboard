@@ -1,19 +1,20 @@
 ---
+const familyId = Astro.locals.familyId!;
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import ColorPicker from '../../components/ColorPicker.astro';
 import { db } from '../../db/client';
 import { calendars, chores, stickyNotes } from '../../db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 const userId = Astro.locals.session?.user?.id;
 
 const [members, myCalendars, choreCount, noteCount] = await Promise.all([
-  db.query.householdMembers.findMany({ orderBy: (m, { asc }) => asc(m.sortOrder) }),
+  db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (m, { asc }) => asc(m.sortOrder) }),
   userId
-    ? db.query.calendars.findMany({ where: eq(calendars.userId, userId) })
+    ? db.query.calendars.findMany({ where: and(eq(calendars.userId, userId), eq(calendars.familyId, familyId)) })
     : Promise.resolve([]),
-  db.$count(chores),
-  db.$count(stickyNotes),
+  db.$count(chores, eq(chores.familyId, familyId)),
+  db.$count(stickyNotes, eq(stickyNotes.familyId, familyId)),
 ]);
 
 const stats = [
@@ -24,32 +25,29 @@ const stats = [
 ---
 
 <AdminLayout title="Overview">
-  <div class="grid gap-4 sm:grid-cols-3">
+  <div class="admin-stat-strip">
     {
       stats.map((stat) => (
-        <div class="rounded-2xl bg-surface p-5 shadow-card">
-          <div class="text-2xl">{stat.icon}</div>
-          <div class="mt-2 text-3xl font-bold">{stat.value}</div>
-          <div class="text-sm text-fg-subtle">{stat.label}</div>
+        <div class="admin-stat">
+          <div class="admin-stat-icon" aria-hidden="true">{stat.icon}</div>
+          <div class="admin-stat-value">{stat.value}</div>
+          <div class="admin-stat-label">{stat.label}</div>
         </div>
       ))
     }
   </div>
 
-  <section class="mt-8 rounded-2xl bg-surface p-5 shadow-card sm:p-6">
-    <h2 class="mb-1 text-lg font-semibold">Household Members</h2>
-    <p class="mb-4 text-sm text-fg-subtle">
+  <section class="admin-members-section">
+    <div class="admin-section-heading"><div><p class="admin-eyebrow">PEOPLE & PERMISSIONS</p><h2 class="mb-1 text-2xl font-semibold">Household members</h2></div><span class="admin-section-index">01</span></div>
+    <p class="mb-5 max-w-xl text-sm text-fg-subtle">
       Members are used to assign chores and to color-code calendars.
     </p>
-    <ul class="mb-5 space-y-2">
+      <ul class="admin-member-list mb-6">
       {
         members.map((member) => (
-          <li class="flex items-center justify-between rounded-xl bg-surface-2/60 px-4 py-2.5">
+          <li class="admin-member-row flex items-center justify-between px-2 py-3">
             <span class="flex items-center gap-2.5">
-              <span
-                class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
-                style={`background-color:${member.color}`}
-              >
+              <span class="admin-member-mark" style={`--member-color:${member.color}`}>
                 {member.name.slice(0, 1).toUpperCase()}
               </span>
               <span class="font-medium">{member.name}</span>
@@ -62,7 +60,7 @@ const stats = [
       }
       {members.length === 0 && <p class="text-sm text-fg-subtle">No household members yet.</p>}
     </ul>
-    <form method="POST" action="/api/admin/members" class="flex flex-wrap items-end gap-3">
+      <form method="POST" action="/api/admin/members" class="admin-member-form flex flex-wrap items-end gap-3">
       <div>
         <label class="block text-sm text-fg-muted" for="name">
           Name

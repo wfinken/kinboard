@@ -6,11 +6,11 @@ const SUPPORTED_TIMEZONES = new Set([
   'Europe/London', 'Europe/Paris', 'Asia/Tokyo', 'Australia/Sydney',
 ]);
 
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const form = await request.formData();
   const timezone = String(form.get('timezone') || 'auto');
   if (!SUPPORTED_TIMEZONES.has(timezone)) return new Response('Unsupported time zone', { status: 400 });
-  const settings = await getDashboardSettings();
-  await saveDashboardSettings({ ...settings, timezone });
+  const settings = await getDashboardSettings(locals.familyId);
+  await saveDashboardSettings({ ...settings, timezone }, locals.familyId);
   return redirect('/admin/account');
 };

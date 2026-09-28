@@ -1,0 +1,47 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../db/client';
+import { familyMemberships, users } from '../../db/schema';
+import { getActiveDashboardToken } from '../../lib/household';
+import { eq } from 'drizzle-orm';
+
+const familyId = Astro.locals.familyId!;
+const family = Astro.locals.family;
+const dashboardAddress = await getActiveDashboardToken(familyId);
+const people = await db.select({ name: users.name, email: users.email, role: familyMemberships.role }).from(familyMemberships).innerJoin(users, eq(users.id, familyMemberships.userId)).where(eq(familyMemberships.familyId, familyId));
+const dashboardUrl = dashboardAddress?.dashboardToken ? new URL(`/?family=${dashboardAddress.dashboardToken}`, Astro.url).toString() : '';
+const rotatesAt = dashboardAddress?.dashboardTokenExpiresAt?.getTime() ?? Date.now() + 60_000;
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<AdminLayout title="Family">
+  <section class="rounded-2xl bg-surface p-6 shadow-card">
+    <h2 class="text-xl font-semibold">{family?.name}</h2>
+    <p class="mt-1 text-sm text-fg-muted">People in this family can view and manage its shared dashboard.</p>
+    <ul class="my-5 space-y-2">
+      {people.map((person) => <li class="rounded-xl bg-surface-2 px-4 py-3">{person.name || person.email} <span class="ml-2 text-xs uppercase text-fg-subtle">{person.role}</span></li>)}
+    </ul>
+    <form method="POST" action="/api/family/invite">
+      <button class="rounded-full bg-accent px-5 py-2.5 font-semibold text-white">Create QR invite</button>
+      <p class="mt-2 text-xs text-fg-subtle">Invite is single-use and expires in 15 minutes.</p>
+    </form>
+    <div class="mt-6 rounded-xl bg-surface-2 p-4">
+      <p class="font-semibold">Family dashboard address</p>
+      <a class="mt-1 block break-all text-sm text-accent underline" href={dashboardUrl}>{dashboardUrl}</a>
+      <p class="mt-2 text-xs text-fg-subtle">This address changes every 24 hours. Your current display stays connected; use the latest address to set up another device.</p>
+    </div>
+  </section>
+</AdminLayout>
+
+<script define:vars={{ rotatesAt }}>
+  const rotateDashboardAddress = async () => {
+    try {
+      const response = await fetch('/api/family/dashboard-address/rotate', { method: 'POST' });
+      if (response.ok) window.location.reload();
+      else setTimeout(rotateDashboardAddress, 60_000);
+    } catch {
+      setTimeout(rotateDashboardAddress, 60_000);
+    }
+  };
+  setTimeout(rotateDashboardAddress, Math.max(1000, rotatesAt - Date.now() + 1000));
+</script>

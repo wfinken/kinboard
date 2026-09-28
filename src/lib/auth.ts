@@ -39,6 +39,27 @@ export const authConfig: AuthConfig = {
   },
 };
 
+/** Auth config used only when the signed-in user explicitly connects event
+ *  creation. Keeping the write scope out of the regular sign-in consent keeps
+ *  the default Google grant read-only. */
+export const calendarEventsAuthConfig: AuthConfig = {
+  ...authConfig,
+  providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          access_type: 'offline',
+          prompt: 'consent',
+          include_granted_scopes: 'true',
+          scope: 'openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events',
+        },
+      },
+    }),
+  ],
+};
+
 /** Reads the current session by replaying the request's cookies against
  *  Auth.js's own /session endpoint — the standard way to check auth state
  *  from framework code when there's no official Astro integration. */

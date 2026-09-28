@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { saveDashboardSettings } from '../../../../../lib/settings';
 import { DASHBOARD_WIDGETS, type DashboardWidgetId } from '../../../../../db/schema';
 
-export const POST: APIRoute = async ({ request, redirect }) => {
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const form = await request.formData();
 
   // FormData preserves document order, so the widget_* keys that made it
@@ -18,14 +18,14 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   const refreshSeconds = Math.max(30, Number(form.get('refreshSeconds')) || 300);
   const theme = form.get('theme') === 'light' ? 'light' : 'dark';
   const timezone = String(form.get('timezone') || 'auto');
-  const current = await (await import('../../../../../lib/settings')).getDashboardSettings();
+  const current = await (await import('../../../../../lib/settings')).getDashboardSettings(locals.familyId);
   const widgetSizes = { ...current.widgetSizes };
   for (const id of DASHBOARD_WIDGETS) {
     const size = form.get(`size_${id}`);
     if (size === '1x1' || size === '2x1' || size === '2x2') widgetSizes[id] = size;
   }
 
-  await saveDashboardSettings({ widgetOrder, refreshSeconds, theme, timezone, widgetSizes });
+  await saveDashboardSettings({ widgetOrder, refreshSeconds, theme, timezone, widgetSizes }, locals.familyId);
 
   return redirect('/admin/layout');
 };

@@ -10,7 +10,7 @@ const linkedAccounts = user?.id
   ? await db.query.accounts.findMany({ where: eq(accounts.userId, user.id) })
   : [];
 const googleAccount = linkedAccounts.find((account) => account.provider === 'google');
-const settings = await getDashboardSettings();
+const settings = await getDashboardSettings(Astro.locals.familyId);
 ---
 
 <AdminLayout title="Account">

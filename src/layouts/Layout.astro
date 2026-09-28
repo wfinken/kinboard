@@ -12,13 +12,15 @@ interface Props {
   /** Household default from dashboard_settings; a per-device override can
    *  still win via localStorage (see ThemeInit/ThemeToggle). */
   theme?: DashboardTheme;
+  /** Hide dashboard-only controls on auth and onboarding screens. */
+  minimal?: boolean;
 }
 
-const { title, refreshSeconds, theme = 'dark' } = Astro.props;
+const { title, refreshSeconds, theme = 'dark', minimal = false } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en" data-theme={theme}>
+<html lang="en" data-theme={theme} data-minimal={minimal ? 'true' : undefined}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -28,7 +30,7 @@ const { title, refreshSeconds, theme = 'dark' } = Astro.props;
     <title>{title} · KinBoard</title>
   </head>
   <body class="min-h-screen bg-page text-fg font-sans">
-    <div class="fixed right-4 top-4 z-50 flex items-center gap-2 dashboard-controls">
+    {!minimal && <div class="fixed right-4 top-4 z-50 flex items-center gap-2 dashboard-controls">
       <button type="button" data-kiosk-toggle aria-pressed="false" class="rounded-full bg-surface-2 px-4 py-2 text-sm font-medium hover:bg-surface-3">⛶ Kiosk</button>
       <a
         href="/admin"
@@ -38,7 +40,7 @@ const { title, refreshSeconds, theme = 'dark' } = Astro.props;
         <span aria-hidden="true">⚙️</span>
       </a>
       <ThemeToggle />
-    </div>
+    </div>}
     <slot />
     <div class="ambient-saver" aria-hidden="true"><span>KinBoard</span><time data-saver-clock></time></div>
     <script is:inline>
@@ -53,7 +55,7 @@ const { title, refreshSeconds, theme = 'dark' } = Astro.props;
           localStorage.setItem('kinboard-kiosk', '1');
         };
         const disable = async () => {
-          root.classList.remove('kiosk-mode', 'ambient-dim', 'ambient-saver-active');
+          root.classList.remove('kiosk-mode', 'ambient-saver-active');
           try { if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
           toggle?.setAttribute('aria-pressed', 'false');
           localStorage.removeItem('kinboard-kiosk');
@@ -64,13 +66,8 @@ const { title, refreshSeconds, theme = 'dark' } = Astro.props;
         try { if (localStorage.getItem('kinboard-kiosk') === '1') enable(); } catch {}
         const updateClock = () => { const node = document.querySelector('[data-saver-clock]'); if (node) node.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); };
         updateClock(); setInterval(updateClock, 60_000);
-        const activity = () => { root.classList.remove('ambient-saver-active'); clearTimeout(saverTimer); saverTimer = setTimeout(() => root.classList.add('ambient-saver-active'), 120_000); };
+        const activity = () => { root.classList.remove('ambient-saver-active'); clearTimeout(saverTimer); if (!root.hasAttribute('data-minimal')) saverTimer = setTimeout(() => root.classList.add('ambient-saver-active'), 120_000); };
         ['pointerdown', 'keydown', 'touchstart'].forEach((name) => document.addEventListener(name, activity, { passive: true })); activity();
-        const updateAmbient = () => {
-          const hour = new Date().getHours();
-          root.classList.toggle('ambient-dim', hour >= 22 || hour < 6);
-        };
-        updateAmbient(); setInterval(updateAmbient, 60_000);
       })();
     </script>
   </body>
@@ -79,7 +76,6 @@ const { title, refreshSeconds, theme = 'dark' } = Astro.props;
 <style is:global>
   .kiosk-mode .dashboard-controls { opacity: 0; pointer-events: none; transition: opacity .25s ease; }
   .kiosk-mode .dashboard-controls:hover, .kiosk-mode .dashboard-controls:focus-within { opacity: 1; pointer-events: auto; }
-  .ambient-dim body { filter: brightness(.62); }
   .ambient-saver { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; gap: 1rem; background: #080a0e; color: #64748b; font-size: clamp(1.5rem, 4vw, 4rem); z-index: 100; }
   .ambient-saver-active .ambient-saver { display: flex; }
   .ambient-saver time { font-variant-numeric: tabular-nums; }
