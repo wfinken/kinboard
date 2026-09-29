@@ -24,75 +24,51 @@ const WIDGET_COMPONENTS: Record<DashboardWidgetId, (_props: Record<string, never
   allowance: AllowanceWidget,
   notes: StickyNotes,
 };
-
-// Calendar reads best as the full-width hero row (it's laid out as day
-// columns); chores reads well at two columns; everything else is happy at
-// one. Order/subset is otherwise fully admin-configurable.
+const enabled = new Set(settings.widgetOrder);
+const orderedWidgets = settings.widgetOrder.filter((id) => id !== 'clock' && id !== 'weather');
+const primaryWidgets = orderedWidgets.filter((id) => id === 'calendar' || id === 'chores' || id === 'notes');
+const secondaryWidgets = orderedWidgets.filter((id) => id === 'meals' || id === 'allowance');
 ---
 
-<Layout title="Dashboard" refreshSeconds={settings.refreshSeconds} theme={settings.theme}>
-  {/* Generous side padding doubles as a safe-area margin for TVs that
-     overscan/crop the edges of the screen. */}
-  <div class="mx-auto max-w-7xl px-8 py-8 sm:px-10 lg:px-12">
-    <div class="dashboard-grid grid gap-5 lg:grid-cols-3" data-dashboard-grid>
-      {
-        settings.widgetOrder.map((id) => {
+<Layout title="Dashboard" refreshSeconds={settings.refreshSeconds} theme={settings.theme} showControls={false}>
+  <main class="wall-dashboard">
+    <header class="wall-header">
+      <div class="wall-brand"><span class="wall-brand-mark" aria-hidden="true">⌂</span><div><p class="wall-eyebrow">YOUR FAMILY, IN SYNC</p><h1>KinBoard</h1></div></div>
+      <div class="wall-date" data-wall-date></div>
+      <div class="wall-actions dashboard-controls">
+        <button type="button" data-kiosk-toggle aria-pressed="false" class="wall-icon-button" aria-label="Toggle full screen">⛶</button>
+        <a href="/admin" class="wall-icon-button" aria-label="Open family settings">⚙</a>
+        <button type="button" data-theme-toggle class="wall-icon-button" aria-label="Toggle light and dark theme"><span data-theme-toggle-icon>☀️</span></button>
+      </div>
+    </header>
+
+    <section class="wall-hero-row" aria-label="Time and weather">
+      {enabled.has('clock') && <div class="wall-clock-card"><div class="wall-card-kicker"><span class="wall-status-dot"></span> RIGHT NOW</div><ClockWidget /></div>}
+      {enabled.has('weather') && <div class="wall-weather-card"><div class="wall-card-kicker">⛅ WEATHER NEAR HOME</div><WeatherWidget /></div>}
+    </section>
+
+    <div class="wall-content-grid">
+      <section class="wall-primary-column" aria-label="Family activities">
+        {primaryWidgets.map((id) => {
           const Widget = WIDGET_COMPONENTS[id];
-          return (
-            <div class={`${settings.widgetSizes[id] === '2x2' ? 'widget-2x2' : settings.widgetSizes[id] === '2x1' ? 'widget-2x1' : 'widget-1x1'} dashboard-tile`} data-widget={id} draggable="true" tabindex="0" aria-label={`${id} widget; drag to rearrange`}>
-              <Widget />
-            </div>
-          );
-        })
-      }
+          const fullWidth = id === 'calendar';
+          return <div class:list={['wall-widget', { 'wall-widget-wide': fullWidth }]} data-widget={id}><Widget /></div>;
+        })}
+      </section>
+      <aside class="wall-secondary-column" aria-label="Family extras">
+        {secondaryWidgets.map((id) => {
+          const Widget = WIDGET_COMPONENTS[id];
+          return <div class="wall-widget" data-widget={id}><Widget /></div>;
+        })}
+      </aside>
     </div>
-    {
-      settings.widgetOrder.length === 0 && (
-        <p class="text-center text-fg-subtle">
-          No widgets enabled. Configure this dashboard from /admin/layout.
-        </p>
-      )
-    }
-  </div>
+
+    {settings.widgetOrder.length === 0 && <p class="wall-empty">No widgets enabled. Configure this dashboard from <a href="/admin/layout">Display settings</a>.</p>}
+    <footer class="wall-footer"><span>Made with <b>♥</b> for the people who make a house a home.</span><span>Family dashboard</span></footer>
+  </main>
 </Layout>
 
-<style>
-  .dashboard-grid { grid-auto-flow: dense; }
-  .widget-1x1 { grid-column: span 1; }
-  .widget-2x1 { grid-column: span 2; }
-  .widget-2x2 { grid-column: span 3; }
-  @media (max-width: 1023px) {
-    .widget-2x1, .widget-2x2 { grid-column: 1 / -1; }
-  }
-  .dashboard-tile { min-width: 0; }
-  .dashboard-tile.is-dragging { opacity: .45; }
-  .dashboard-tile.drop-target { outline: 2px dashed var(--color-accent); outline-offset: 4px; }
-</style>
-
 <script>
-  const grid = document.querySelector<HTMLElement>('[data-dashboard-grid]');
-  let dragging: HTMLElement | null = null;
-  grid?.querySelectorAll<HTMLElement>('[data-widget]').forEach((tile) => {
-    tile.addEventListener('dragstart', (event) => {
-      dragging = tile;
-      tile.classList.add('is-dragging');
-      if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-    });
-    tile.addEventListener('dragend', () => {
-      tile.classList.remove('is-dragging');
-      grid.querySelectorAll('.drop-target').forEach((node) => node.classList.remove('drop-target'));
-    });
-    tile.addEventListener('dragover', (event) => { event.preventDefault(); if (tile !== dragging) tile.classList.add('drop-target'); });
-    tile.addEventListener('dragleave', () => tile.classList.remove('drop-target'));
-    tile.addEventListener('drop', async (event) => {
-      event.preventDefault();
-      if (!dragging || dragging === tile) return;
-      const children = [...grid.children];
-      if (children.indexOf(dragging) < children.indexOf(tile)) grid.insertBefore(dragging, tile.nextSibling);
-      else grid.insertBefore(dragging, tile);
-      tile.classList.remove('drop-target');
-      const order = [...grid.querySelectorAll<HTMLElement>('[data-widget]')].map((node) => node.dataset.widget);
-      await fetch('/api/dashboard/widgets/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) });
-    });
-  });
+  const date = document.querySelector<HTMLElement>('[data-wall-date]');
+  if (date) date.textContent = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
 </script>

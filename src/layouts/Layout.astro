@@ -14,9 +14,11 @@ interface Props {
   theme?: DashboardTheme;
   /** Hide dashboard-only controls on auth and onboarding screens. */
   minimal?: boolean;
+  /** The redesigned dashboard renders its own header controls. */
+  showControls?: boolean;
 }
 
-const { title, refreshSeconds, theme = 'dark', minimal = false } = Astro.props;
+const { title, refreshSeconds, theme = 'dark', minimal = false, showControls = true } = Astro.props;
 ---
 
 <!doctype html>
@@ -24,13 +26,16 @@ const { title, refreshSeconds, theme = 'dark', minimal = false } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet" />
     <ThemeInit serverTheme={theme} />
     {refreshSeconds ? <meta http-equiv="refresh" content={String(refreshSeconds)} /> : null}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title} · KinBoard</title>
   </head>
   <body class="min-h-screen bg-page text-fg font-sans">
-    {!minimal && <div class="fixed right-4 top-4 z-50 flex items-center gap-2 dashboard-controls">
+    {!minimal && showControls && <div class="fixed right-4 top-4 z-50 flex items-center gap-2 dashboard-controls">
       <button type="button" data-kiosk-toggle aria-pressed="false" class="rounded-full bg-surface-2 px-4 py-2 text-sm font-medium hover:bg-surface-3">⛶ Kiosk</button>
       <a
         href="/admin"

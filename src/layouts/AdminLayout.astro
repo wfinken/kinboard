@@ -28,13 +28,16 @@ const currentPath = Astro.url.pathname;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet" />
     <ThemeInit serverTheme={theme} />
     <title>{title} · KinBoard Admin</title>
   </head>
   <body class="min-h-screen bg-page text-fg font-sans admin-body">
     <div class="admin-shell">
       <aside class="admin-sidebar" id="admin-sidebar" aria-label="Admin navigation">
-        <a href="/admin" class="admin-brand"><span class="admin-brand-mark">K.</span><span><strong>KinBoard</strong><small>HOME OFFICE</small></span></a>
+        <a href="/admin" class="admin-brand"><span class="admin-brand-mark">K.</span><span><strong>KinBoard</strong><small>FAMILY ADMIN</small></span></a>
         <p class="admin-nav-label">HOUSEHOLD</p>
         <nav aria-label="Admin settings" class="admin-nav">
           {navItems.map((item) => {
@@ -53,7 +56,7 @@ const currentPath = Astro.url.pathname;
       <div class="admin-main-wrap">
         <header class="admin-topbar">
           <button class="admin-menu-button" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="admin-sidebar" data-admin-menu><span></span><span></span><span></span></button>
-          <div class="admin-breadcrumb"><span>HOME OFFICE</span><span aria-hidden="true">·</span><strong>{title}</strong></div>
+          <div class="admin-breadcrumb"><span>FAMILY ADMIN</span><span aria-hidden="true">·</span><strong>{title}</strong></div>
           <div class="admin-top-actions"><span class="admin-avatar" aria-hidden="true">{(session?.user?.name || session?.user?.email || 'K').slice(0, 1).toUpperCase()}</span><ThemeToggle /><a href="/api/auth/signout" class="admin-signout">Sign out</a></div>
         </header>
         <main class="admin-main">
