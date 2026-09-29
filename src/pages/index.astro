@@ -71,4 +71,20 @@ const secondaryWidgets = orderedWidgets.filter((id) => id === 'meals' || id === 
 <script>
   const date = document.querySelector<HTMLElement>('[data-wall-date]');
   if (date) date.textContent = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const THEME_STORAGE_KEY = 'kinboard-theme';
+  const currentTheme = (): 'light' | 'dark' => (document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
+  const syncThemeIcons = () => {
+    const icon = currentTheme() === 'dark' ? '☀️' : '🌙';
+    document.querySelectorAll('[data-theme-toggle-icon]').forEach((el) => { el.textContent = icon; });
+  };
+  document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = currentTheme() === 'light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch {}
+      syncThemeIcons();
+    });
+  });
+  syncThemeIcons();
 </script>
