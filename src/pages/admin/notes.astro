@@ -5,11 +5,15 @@ import ColorPicker from '../../components/ColorPicker.astro';
 import { db } from '../../db/client';
 import { desc } from 'drizzle-orm';
 import { stickyNotes } from '../../db/schema';
+import { getPermissions } from '../../lib/permissions';
 
+const perms = await getPermissions(familyId, Astro.locals.session!.user!.id);
+if (!perms.notes.read) return Astro.redirect('/admin');
 const notes = await db.query.stickyNotes.findMany({ where: (n, { eq }) => eq(n.familyId, familyId), orderBy: desc(stickyNotes.createdAt) });
 ---
 
 <AdminLayout title="Bulletin Board">
+  {perms.notes.create && (
   <form
     method="POST"
     action="/api/admin/notes"
@@ -44,6 +48,7 @@ const notes = await db.query.stickyNotes.findMany({ where: (n, { eq }) => eq(n.f
       Add Note
     </button>
   </form>
+  )}
 
   <ul class="grid gap-3 sm:grid-cols-2">
     {
@@ -52,9 +57,11 @@ const notes = await db.query.stickyNotes.findMany({ where: (n, { eq }) => eq(n.f
           <p class="mb-2 font-medium">{note.content}</p>
           <div class="flex items-center justify-between text-sm text-ink-soft">
             <span>{note.authorName ?? ''}</span>
-            <form method="POST" action={`/api/admin/notes/${note.id}/delete`}>
-              <button class="hover:text-danger-hover">Remove</button>
-            </form>
+            {perms.notes.delete && (
+              <form method="POST" action={`/api/admin/notes/${note.id}/delete`}>
+                <button class="hover:text-danger-hover">Remove</button>
+              </form>
+            )}
           </div>
         </li>
       ))

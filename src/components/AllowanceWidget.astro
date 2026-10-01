@@ -1,12 +1,11 @@
 ---
-const familyId = Astro.locals.familyId ?? Astro.url.searchParams.get('family');
-if (!familyId) throw new Error('Family context missing from dashboard request');
-import { desc } from 'drizzle-orm';
+const familyId = Astro.locals.familyId!;
+import { desc, eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { allowanceBids } from '../db/schema';
+import { allowanceBids, allowanceLedger } from '../db/schema';
 
 const [ledger, bids, choresOpen, members] = await Promise.all([
-  db.query.allowanceLedger.findMany({ where: (l, { eq }) => eq(l.familyId, familyId) }),
+  db.select({ kind: allowanceLedger.kind, amountCents: allowanceLedger.amountCents }).from(allowanceLedger).where(eq(allowanceLedger.familyId, familyId)),
   db.query.allowanceBids.findMany({ where: (b, { eq }) => eq(b.familyId, familyId), orderBy: desc(allowanceBids.createdAt) }),
   db.query.chores.findMany({ where: (c, { eq, and }) => and(eq(c.familyId, familyId), eq(c.allowanceEnabled, true)), orderBy: (c, { asc }) => asc(c.sortOrder) }),
   db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (m, { asc }) => asc(m.sortOrder) }),
@@ -22,7 +21,7 @@ for (const bid of bids) bidsByChore.set(bid.choreId, [...(bidsByChore.get(bid.ch
 <section class="rounded-3xl bg-surface p-5 shadow-card sm:p-6" data-allowance-widget data-family-id={familyId}>
   <div class="mb-4 flex items-center gap-3">
     <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-success-soft text-2xl" aria-hidden="true">💰</span>
-    <div><h2 class="text-lg font-semibold">Allowance</h2><p class="text-sm text-fg-muted">${(balanceCents / 100).toFixed(2)} available</p></div>
+    <div><h2 class="text-lg font-semibold">Allowance</h2><p class="text-sm text-fg-muted" data-allowance-balance data-cents={balanceCents}>${(balanceCents / 100).toFixed(2)} available</p></div>
     <a href="/admin/allowance" class="ml-auto rounded-full bg-surface-2 px-3 py-2 text-sm font-medium hover:bg-surface-3">Parent controls</a>
   </div>
   {choresOpen.length ? <ul class="space-y-3">{choresOpen.map((chore) => {

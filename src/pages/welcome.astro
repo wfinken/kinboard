@@ -18,6 +18,8 @@ const { Auth } = await import('@auth/core');
 const { authConfig } = await import('../lib/auth');
 const csrfResponse = await Auth(new Request(csrfUrl, { headers: Astro.request.headers }), authConfig);
 const { csrfToken } = await csrfResponse.json() as { csrfToken: string };
+const csrfCookie = csrfResponse.headers.get('set-cookie');
+if (csrfCookie) Astro.response.headers.append('Set-Cookie', csrfCookie);
 const signInCallback = inviteToken ? `/welcome?invite=${encodeURIComponent(inviteToken)}` : '/welcome';
 ---
 

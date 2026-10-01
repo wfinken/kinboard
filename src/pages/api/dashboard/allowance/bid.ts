@@ -3,12 +3,11 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../../../db/client';
 import { allowanceBids, chores, householdMembers } from '../../../../db/schema';
 
-export const POST: APIRoute = async ({ request, locals, url }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   const { choreId, memberId, amount } = await request.json().catch(() => ({})) as { choreId?: string; memberId?: string; amount?: number };
   const amountCents = Math.round(Number(amount) * 100);
   if (!choreId || !memberId || !Number.isFinite(amountCents) || amountCents <= 0) return new Response('Invalid bid', { status: 400 });
-  const familyId = locals.familyId ?? url.searchParams.get('family');
-  if (!familyId) return new Response('Family required', { status: 400 });
+  const familyId = locals.familyId!;
   const [chore, member] = await Promise.all([
     db.query.chores.findFirst({ where: and(eq(chores.id, choreId), eq(chores.familyId, familyId)) }),
     db.query.householdMembers.findFirst({ where: and(eq(householdMembers.id, memberId), eq(householdMembers.familyId, familyId)) }),

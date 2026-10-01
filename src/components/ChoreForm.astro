@@ -1,0 +1,39 @@
+---
+interface Props {
+  members: Array<{ id: string; name: string }>;
+  returnTo: string;
+  compact?: boolean;
+}
+const { members, returnTo, compact = false } = Astro.props;
+---
+<form method="POST" action="/api/admin/chores" class:list={[compact ? 'space-y-4 p-6' : 'mb-6 flex flex-wrap items-end gap-3 rounded-2xl bg-surface p-5 shadow-card']}>
+  <input type="hidden" name="returnTo" value={returnTo} />
+  <label class:list={[compact ? 'block' : 'block text-sm text-fg-muted']}>Chore<input name="title" required placeholder="What needs doing?" class="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5" /></label>
+  <div class="grid grid-cols-2 gap-3">
+    <label class="block text-sm text-fg-muted">Assign to<select name="memberId" class="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5"><option value="">Everyone</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}</select></label>
+    <label class="block text-sm text-fg-muted">Resets<select name="frequency" class="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5"><option value="daily">Every day</option><option value="weekly">Every week</option></select></label>
+  </div>
+  <label class="block text-sm text-fg-muted">Reward<select name="rewardType" data-reward-type class="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5"><option value="xp">XP</option><option value="allowance">Allowance</option></select></label>
+  <label class="block text-sm text-fg-muted" data-xp-field>XP points<input name="rewardPoints" type="number" min="1" max="100000" value="10" class="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5" /></label>
+  <label class="hidden text-sm text-fg-muted" data-allowance-field>Allowance $<input name="rewardAmount" type="number" min="0" step="0.25" value="1" class="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5" /></label>
+  <label class="hidden items-center gap-2 text-sm text-fg-muted" data-allowance-field><input type="checkbox" name="allowanceEnabled" /> Allow bids</label>
+  <label class="hidden text-sm text-fg-muted" data-allowance-field>Maximum bid $<input name="maxBid" type="number" min="0.01" step="0.01" value="2" class="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5" /></label>
+  <label class="block text-sm text-fg-muted">Category<input name="category" placeholder="General" class="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5" /></label>
+  <label class="block text-sm text-fg-muted">Rotate with<select name="rotationMemberId" class="mt-1 block w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5"><option value="">No rotation</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}</select></label>
+  <label class="flex items-center gap-2 text-sm text-fg-muted"><input type="checkbox" name="bounty" /> Household bounty</label>
+  <button class:list={[compact ? 'w-full rounded-xl bg-success px-4 py-3 font-semibold text-white hover:bg-success-hover' : 'rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover']}>Add chore</button>
+</form>
+
+<script>
+  document.querySelectorAll('[data-reward-type]').forEach((node) => {
+    const select = node as unknown as HTMLSelectElement;
+    const form = select.form;
+    const update = () => {
+      const allowance = select.value === 'allowance';
+      form?.querySelectorAll('[data-xp-field]').forEach((field) => (field as HTMLElement).classList.toggle('hidden', allowance));
+      form?.querySelectorAll('[data-allowance-field]').forEach((field) => (field as HTMLElement).classList.toggle('hidden', !allowance));
+    };
+    select.addEventListener('change', update);
+    update();
+  });
+</script>

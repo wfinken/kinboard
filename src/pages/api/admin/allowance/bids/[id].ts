@@ -2,8 +2,11 @@ import type { APIRoute } from 'astro';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../../../../db/client';
 import { allowanceBids, allowanceLedger, chores } from '../../../../../db/schema';
+import { requirePermission } from '../../../../../lib/permissions';
 
 export const POST: APIRoute = async ({ params, request, redirect, locals }) => {
+  const denied = await requirePermission(locals, 'allowance', 'update');
+  if (denied) return denied;
   const familyId = locals.familyId!;
   const bidId = params.id;
   const form = await request.formData();

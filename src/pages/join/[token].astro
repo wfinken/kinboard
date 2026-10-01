@@ -1,12 +1,24 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { getDashboardSettings } from '../../lib/settings';
+import { db } from '../../db/client';
+import { families, familyInvites } from '../../db/schema';
+import { eq } from 'drizzle-orm';
 const { token } = Astro.params;
 const session = Astro.locals.session;
-if (!session?.user) return Astro.redirect(`/login?callbackUrl=${encodeURIComponent(`/welcome?invite=${token}`)}`);
-if (!Astro.locals.familyId) return Astro.redirect(`/welcome?invite=${token}`);
-const { theme } = await getDashboardSettings(Astro.locals.familyId);
+if (!session?.user) return Astro.redirect(`/login?callbackUrl=${encodeURIComponent(`/join/${token}`)}`);
+const invite = token ? await db.query.familyInvites.findFirst({ where: eq(familyInvites.token, token) }) : null;
+const family = invite && invite.expiresAt.getTime() > Date.now()
+  ? await db.query.families.findFirst({ where: eq(families.id, invite.familyId) })
+  : null;
+const { theme } = await getDashboardSettings(family?.id ?? Astro.locals.familyId);
+const inviteError = Astro.url.searchParams.get('error') === 'invite' || !family;
 ---
 <Layout title="Join family" theme={theme}>
-  <main class="mx-auto max-w-lg px-5 py-16"><section class="rounded-3xl bg-surface p-8 shadow-card"><h1 class="text-3xl font-bold">Join a family</h1><p class="mt-3 text-fg-muted">Sign in with Google to join the family that invited you.</p><a href={`/welcome?invite=${encodeURIComponent(token ?? '')}`} class="mt-6 block w-full rounded-2xl bg-accent px-4 py-3 text-center font-semibold text-white">Continue</a></section></main>
+  <main class="flex min-h-screen items-center justify-center px-5 py-10">
+    <section role="dialog" aria-modal="true" aria-labelledby="invite-title" class="w-full max-w-md rounded-3xl border border-line bg-surface p-7 shadow-card sm:p-9">
+      <div class="mb-5 grid h-12 w-12 place-items-center rounded-2xl bg-accent-soft text-2xl" aria-hidden="true">👋</div>
+      {inviteError ? <><p class="mb-2 text-sm font-semibold uppercase tracking-[.16em] text-danger">Invite unavailable</p><h1 id="invite-title" class="text-2xl font-bold">This invite has expired</h1><p class="mt-3 leading-6 text-fg-muted">Ask the person who invited you to send a fresh family invite.</p><a href="/welcome" class="mt-7 block rounded-2xl border border-line px-4 py-3 text-center font-semibold">Back</a></> : <><p class="mb-2 text-sm font-semibold uppercase tracking-[.16em] text-accent">Family invitation</p><h1 id="invite-title" class="text-2xl font-bold">Join {family.name}?</h1><p class="mt-3 leading-6 text-fg-muted">You’re invited to share the family dashboard, calendar, and household updates.</p><form method="POST" action={`/api/family/join/${encodeURIComponent(token ?? '')}`} class="mt-7"><button class="w-full rounded-2xl bg-accent px-4 py-3.5 font-semibold text-white">Accept invitation</button></form><a href="/welcome" class="mt-3 block rounded-2xl border border-line px-4 py-3 text-center font-semibold">Not now</a></>}
+    </section>
+  </main>
 </Layout>

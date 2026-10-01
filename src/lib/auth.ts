@@ -2,6 +2,7 @@ import { Auth, type AuthConfig } from '@auth/core';
 import type { Session } from '@auth/core/types';
 import Google from '@auth/core/providers/google';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
+import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client';
 import { users, accounts, sessions, verificationTokens } from '../db/schema';
 
@@ -35,6 +36,29 @@ export const authConfig: AuthConfig = {
         session.user.id = user.id;
       }
       return session;
+    },
+    // Re-authenticating an already-linked Google account (e.g. granting the
+    // broader calendar.events scope via /admin/calendars/connect) hits
+    // @auth/core's early-return path for "already linked to this user" and
+    // never calls the adapter's linkAccount again — so the fresh
+    // tokens/scope from that consent would otherwise be silently discarded.
+    // Persist them here instead. This runs before the account row exists on
+    // a brand-new sign-in, so the update is a harmless no-op in that case.
+    async signIn({ account }) {
+      if (account?.provider === 'google' && account.providerAccountId) {
+        await db
+          .update(accounts)
+          .set({
+            access_token: account.access_token,
+            refresh_token: account.refresh_token ?? undefined,
+            expires_at: account.expires_at,
+            token_type: account.token_type,
+            scope: account.scope,
+            id_token: account.id_token,
+          })
+          .where(and(eq(accounts.provider, account.provider), eq(accounts.providerAccountId, account.providerAccountId)));
+      }
+      return true;
     },
   },
 };

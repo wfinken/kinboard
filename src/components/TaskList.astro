@@ -1,26 +1,40 @@
 ---
-const familyId = Astro.locals.familyId ?? Astro.url.searchParams.get('family');
-if (!familyId) throw new Error('Family context missing from dashboard request');
+const familyId = Astro.locals.familyId!;
 import { db } from '../db/client';
+import { and, eq, inArray } from 'drizzle-orm';
+import { choreCompletions, chores } from '../db/schema';
 import { currentPeriodKey } from '../lib/chores';
+import ChoreForm from './ChoreForm.astro';
 
-const [allChores, members, claims, statuses] = await Promise.all([
+interface Props { canCreate?: boolean }
+const { canCreate = true } = Astro.props;
+
+const [allChores, members, claims, goals, completions] = await Promise.all([
   db.query.chores.findMany({ where: (c, { eq }) => eq(c.familyId, familyId), orderBy: (c, { asc }) => asc(c.sortOrder) }),
   db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (m, { asc }) => asc(m.sortOrder) }),
   db.query.choreClaims.findMany({ where: (c, { eq }) => eq(c.familyId, familyId) }),
-  db.query.memberStatuses.findMany({ where: (m, { eq }) => eq(m.familyId, familyId) }),
+  db.query.xpGoals.findMany({ where: (g, { eq }) => eq(g.familyId, familyId), orderBy: (g, { asc }) => asc(g.createdAt) }),
+  // Only current period rows affect the visible checkboxes and current XP.
+  db.select({ choreId: choreCompletions.choreId, periodKey: choreCompletions.periodKey, memberId: choreCompletions.memberId })
+    .from(choreCompletions)
+    .where(and(eq(choreCompletions.familyId, familyId), inArray(choreCompletions.choreId, db.select({ id: chores.id }).from(chores).where(eq(chores.familyId, familyId))))),
 ]);
-
-const completions = await db.query.choreCompletions.findMany({ where: (c, { eq }) => eq(c.familyId, familyId) });
 const completedKeys = new Set(completions.map((c) => `${c.choreId}:${c.periodKey}`));
 
 function isDone(choreId: string, frequency: 'daily' | 'weekly') {
   return completedKeys.has(`${choreId}:${currentPeriodKey(frequency)}`);
 }
 
-const statusByMember = new Map(statuses.map((s) => [s.memberId, s.status]));
 const claimByChore = new Map(claims.map((c) => [c.choreId, members.find((m) => m.id === c.memberId)?.name ?? 'Claimed']));
-const claimedPoints = completions.reduce((sum, c) => sum + (allChores.find((ch) => ch.id === c.choreId)?.rewardPoints ?? 0), 0);
+const xpByMember = new Map<string, number>();
+let earnedXp = 0;
+for (const completion of completions) {
+  const chore = allChores.find((c) => c.id === completion.choreId);
+  if (!chore || chore.rewardType !== 'xp' || completion.periodKey !== currentPeriodKey(chore.frequency)) continue;
+  earnedXp += chore.rewardPoints;
+  const memberId = completion.memberId ?? chore.memberId;
+  if (memberId) xpByMember.set(memberId, (xpByMember.get(memberId) ?? 0) + chore.rewardPoints);
+}
 const localDay = new Date().getDate();
 const effectiveMemberId = (chore: typeof allChores[number]) => chore.rotationMemberId && localDay % 2 === 0 ? chore.rotationMemberId : chore.memberId;
 const unassigned = allChores.filter((c) => c.bounty || !effectiveMemberId(c));
@@ -35,13 +49,10 @@ const byMember = members
 <div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6" data-chore-list data-family-id={familyId}>
   <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold">
     <span aria-hidden="true">✅</span> Chores
-    <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="chore-dialog">＋ Add</button>
+    {canCreate && <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="chore-dialog">＋ Add</button>}
   </h2>
-  <div class="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-success-soft px-4 py-3 text-sm text-fg">
-    <span class="text-lg" aria-hidden="true">⭐</span><strong>{claimedPoints} family points earned</strong>
-    <span class="text-fg-muted">· complete chores to keep your streak growing</span>
-  </div>
-  {members.length > 0 && <div class="mb-4 flex flex-wrap gap-2">{members.map((member) => <label class="flex items-center gap-2 rounded-full bg-surface-2 px-3 py-2 text-sm"><span class="font-medium">{member.name}</span><select class="rounded-full bg-surface px-2 py-1 text-xs" data-member-status={member.id}><option selected={!statusByMember.get(member.id)} value="Available">Available</option><option selected={statusByMember.get(member.id) === 'On my way home'}>On my way home</option><option selected={statusByMember.get(member.id) === 'At practice'}>At practice</option><option selected={statusByMember.get(member.id) === 'Working late'}>Working late</option></select></label>)}</div>}
+  <div class="mb-4 flex flex-wrap items-center gap-2 rounded-2xl bg-success-soft px-4 py-3 text-sm text-fg"><span class="text-lg" aria-hidden="true">⭐</span><strong data-earned-xp>{earnedXp} XP earned</strong><span class="text-fg-muted">· keep completing chores to reach your goals</span></div>
+  {goals.length > 0 && <div class="mb-4 grid gap-2 sm:grid-cols-2">{goals.map((goal) => { const current = goal.memberId ? (xpByMember.get(goal.memberId) ?? 0) : earnedXp; const memberName = goal.memberId ? members.find((m) => m.id === goal.memberId)?.name : null; const percent = Math.min(100, Math.floor((current / goal.targetPoints) * 100)); return <div class="rounded-xl bg-surface-2/60 px-3 py-2.5" data-xp-goal data-member-id={goal.memberId ?? ''} data-current={current} data-target={goal.targetPoints}><div class="flex justify-between gap-2 text-xs"><strong>{goal.title}</strong><span data-goal-progress>{current}/{goal.targetPoints} XP</span></div><p class="mt-0.5 text-xs text-fg-muted">{memberName ?? 'Family goal'}</p><div class="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3"><div class="h-full rounded-full bg-accent" data-goal-bar style={`width:${percent}%`}></div></div></div>; })}</div>}
   <div class="grid gap-4 sm:grid-cols-2">
     {
       byMember.map((group) => {
@@ -62,7 +73,7 @@ const byMember = members
             </div>
             <ul class="space-y-0.5">
               {group.items.map((chore) => (
-                <li>
+        <li data-reward-type={chore.rewardType} data-reward-points={chore.rewardPoints} data-reward-cents={chore.rewardCents} data-member-id={effectiveMemberId(chore) ?? ''}>
                   <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-3">
                     <input
                       type="checkbox"
@@ -70,9 +81,7 @@ const byMember = members
                       checked={isDone(chore.id, chore.frequency)}
                       data-chore-id={chore.id}
                     />
-                    <span class="chore-title" data-done={isDone(chore.id, chore.frequency)}>
-                      {chore.title}
-                    </span>
+                    <span class="min-w-0 flex-1"><span class="chore-title" data-done={isDone(chore.id, chore.frequency)}>{chore.title}</span><span class="ml-2 text-xs text-fg-muted">{chore.rewardType === 'allowance' ? `$${(chore.rewardCents / 100).toFixed(2)}` : `${chore.rewardPoints} XP`}</span></span>
                   </label>
                 </li>
               ))}
@@ -87,7 +96,7 @@ const byMember = members
             <div class="mb-2 font-medium text-fg-muted">Household Bounty</div>
           <ul class="space-y-0.5">
             {unassigned.map((chore) => (
-              <li>
+              <li data-bounty={chore.bounty ? 'true' : 'false'} data-chore-title={chore.title} data-reward-type={chore.rewardType} data-reward-points={chore.rewardPoints} data-reward-cents={chore.rewardCents} data-member-id={claims.find((claim) => claim.choreId === chore.id)?.memberId ?? ''}>
                 <label class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-surface-3">
                   <input
                     type="checkbox"
@@ -95,9 +104,9 @@ const byMember = members
                     checked={isDone(chore.id, chore.frequency)}
                     data-chore-id={chore.id}
                   />
-                    <span class="min-w-0 flex-1"><span class="chore-title" data-done={isDone(chore.id, chore.frequency)}>{chore.title}</span><span class="ml-2 text-xs text-fg-muted">{chore.rewardPoints} pts{chore.rewardCents ? ` · $${(chore.rewardCents / 100).toFixed(2)}` : ''}</span></span>
+                    <span class="min-w-0 flex-1"><span class="chore-title" data-done={isDone(chore.id, chore.frequency)}>{chore.title}</span><span class="ml-2 text-xs text-fg-muted">{chore.rewardType === 'allowance' ? `$${(chore.rewardCents / 100).toFixed(2)}` : `${chore.rewardPoints} XP`}</span></span>
                   </label>
-                  {chore.bounty && <div class="ml-9 flex items-center gap-2 pb-2 text-xs text-fg-muted"><span>{claimByChore.get(chore.id) ? `Claimed by ${claimByChore.get(chore.id)}` : 'Extra points for a volunteer'}</span>{!claimByChore.has(chore.id) && <select class="rounded-lg bg-surface px-2 py-1" data-claim-chore={chore.id}><option value="">Claim as…</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}</select>}</div>}
+                  {chore.bounty && <div class="ml-9 flex flex-wrap items-center gap-2 pb-2 text-xs text-fg-muted"><span>{claimByChore.get(chore.id) ? `Claimed by ${claimByChore.get(chore.id)}` : 'Extra points for a volunteer'}</span>{!claimByChore.has(chore.id) && <select class="rounded-lg bg-surface px-2 py-1" data-claim-chore={chore.id}><option value="">Claim as…</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}</select>}</div>}
               </li>
             ))}
           </ul>
@@ -114,16 +123,55 @@ const byMember = members
   }
 </style>
 
-<dialog id="chore-dialog" class="fixed inset-0 m-auto w-[min(92vw,27rem)] rounded-3xl bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60"><form method="POST" action="/api/admin/chores" class="space-y-4 p-6"><input type="hidden" name="returnTo" value="/" /><div class="flex items-center justify-between"><h3 class="text-xl font-semibold">Add a chore</h3><button type="button" class="text-2xl text-fg-muted" data-close-dialog>×</button></div><input name="title" required placeholder="What needs doing?" class="w-full rounded-xl border border-line bg-surface-2 px-3 py-3" /><div class="grid grid-cols-2 gap-3"><select name="memberId" class="rounded-xl border border-line bg-surface-2 px-3 py-2.5"><option value="">Everyone</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}</select><select name="frequency" class="rounded-xl border border-line bg-surface-2 px-3 py-2.5"><option value="daily">Every day</option><option value="weekly">Every week</option></select></div><input type="hidden" name="category" value="General" /><button class="w-full rounded-xl bg-success px-4 py-3 font-semibold text-white hover:bg-success-hover">Add chore</button></form></dialog>
+<dialog id="chore-dialog" class="fixed inset-0 m-auto w-[min(92vw,30rem)] rounded-3xl bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60"><div class="flex items-center justify-between px-6 pt-5"><h3 class="text-xl font-semibold">Add a chore</h3><button type="button" class="text-2xl text-fg-muted" data-close-dialog>×</button></div><ChoreForm members={members} returnTo="/" compact /></dialog>
+
+<dialog id="bounty-completion-dialog" class="fixed inset-0 m-auto w-[min(92vw,26rem)] rounded-3xl bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60" data-bounty-dialog>
+  <form method="dialog" class="p-6">
+    <h3 class="text-xl font-semibold">Who completed this chore?</h3>
+    <p class="mt-1 text-sm text-fg-muted" data-bounty-title></p>
+    <label class="mt-4 block text-sm text-fg-muted">Family member
+      <select class="mt-1 block w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" data-bounty-member required>
+        <option value="">Select a family member…</option>
+        {members.map((member) => <option value={member.id}>{member.name}</option>)}
+      </select>
+    </label>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" class="rounded-full bg-surface-2 px-4 py-2 font-medium" data-bounty-cancel>Cancel</button>
+      <button type="submit" class="rounded-full bg-success px-4 py-2 font-semibold text-white" data-bounty-confirm>Complete chore</button>
+    </div>
+  </form>
+</dialog>
 
 <script>
   const choreDialog = document.querySelector<HTMLDialogElement>('#chore-dialog');
   document.querySelector('[data-open-dialog="chore-dialog"]')?.addEventListener('click', () => choreDialog?.showModal());
   choreDialog?.querySelector('[data-close-dialog]')?.addEventListener('click', () => choreDialog.close());
   choreDialog?.addEventListener('click', (event) => { if (event.target === choreDialog) choreDialog.close(); });
+
 </script>
 
 <script>
+  const bountyDialog = document.querySelector<HTMLDialogElement>('[data-bounty-dialog]');
+  const bountyTitle = bountyDialog?.querySelector('[data-bounty-title]');
+  const bountyMember = bountyDialog?.querySelector('[data-bounty-member]') as unknown as HTMLSelectElement | null;
+  const bountyCancel = bountyDialog?.querySelector('[data-bounty-cancel]') as unknown as HTMLButtonElement | null;
+  let pendingBountyCheckbox: HTMLInputElement | null = null;
+  bountyCancel?.addEventListener('click', () => bountyDialog?.close('cancel'));
+  bountyDialog?.addEventListener('click', (event) => { if (event.target === bountyDialog) bountyDialog.close('cancel'); });
+  bountyDialog?.addEventListener('close', () => {
+    if (bountyDialog.returnValue !== 'complete' && pendingBountyCheckbox) pendingBountyCheckbox.checked = false;
+    pendingBountyCheckbox = null;
+  });
+  bountyDialog?.querySelector('form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const checkbox = pendingBountyCheckbox;
+    if (!bountyMember?.value || !checkbox) return;
+    checkbox.dataset.completerId = bountyMember.value;
+    checkbox.checked = true;
+    bountyDialog?.close('complete');
+    void saveCompletion(checkbox.dataset.choreId ?? '', checkbox, true, checkbox.closest<HTMLElement>('li'));
+  });
+
   function updateGroupCount(group: HTMLElement) {
     const counter = group.querySelector<HTMLElement>('[data-chore-count]');
     if (!counter) return;
@@ -132,13 +180,58 @@ const byMember = members
     counter.textContent = `${done}/${boxes.length}`;
   }
 
-  document.querySelectorAll<HTMLInputElement>('[data-chore-id]').forEach((checkbox) => {
-    const titleEl = checkbox.closest('label')?.querySelector<HTMLElement>('.chore-title');
-    const group = checkbox.closest<HTMLElement>('[data-chore-group]');
+  function applyReward(checkbox: HTMLInputElement, completed: boolean) {
+    const item = checkbox.closest('li');
+    const type = item?.dataset.rewardType;
+    const points = Number(item?.dataset.rewardPoints ?? 0);
+    const cents = Number(item?.dataset.rewardCents ?? 0);
+    const memberId = item?.dataset.memberId ?? '';
+    const direction = completed ? 1 : -1;
+    if (type === 'xp' && points) {
+      const total = document.querySelector<HTMLElement>('[data-earned-xp]');
+      if (total) total.textContent = `${Math.max(0, Number(total.textContent?.match(/\d+/)?.[0] ?? 0) + direction * points)} XP earned`;
+      document.querySelectorAll<HTMLElement>('[data-xp-goal]').forEach((goal) => {
+        if (goal.dataset.memberId && goal.dataset.memberId !== memberId) return;
+        const current = Math.max(0, Number(goal.dataset.current ?? 0) + direction * points);
+        const target = Number(goal.dataset.target ?? 1);
+        goal.dataset.current = String(current);
+        const progress = goal.querySelector<HTMLElement>('[data-goal-progress]');
+        if (progress) progress.textContent = `${current}/${target} XP`;
+        const bar = goal.querySelector<HTMLElement>('[data-goal-bar]');
+        if (bar) bar.style.width = `${Math.min(100, Math.floor((current / target) * 100))}%`;
+      });
+    }
+    if (type === 'allowance' && cents) {
+      const available = document.querySelector<HTMLElement>('[data-allowance-balance]');
+      if (available) {
+        const current = Number(available.dataset.cents ?? 0);
+        const next = Math.max(0, current - direction * cents);
+        available.dataset.cents = String(next);
+        available.textContent = `$${(next / 100).toFixed(2)} available`;
+      }
+    }
+  }
 
+  document.querySelectorAll<HTMLInputElement>('[data-chore-id]').forEach((checkbox) => {
     checkbox.addEventListener('change', async () => {
       const choreId = checkbox.dataset.choreId;
       const completed = checkbox.checked;
+      const item = checkbox.closest<HTMLElement>('li');
+      if (completed && item?.dataset.bounty === 'true' && !checkbox.dataset.completerId) {
+        checkbox.checked = false;
+        pendingBountyCheckbox = checkbox;
+        if (bountyTitle) bountyTitle.textContent = item.dataset.choreTitle ?? 'Household bounty';
+        if (bountyMember) bountyMember.value = '';
+        bountyDialog?.showModal();
+        return;
+      }
+      await saveCompletion(choreId ?? '', checkbox, completed, item);
+    });
+  });
+
+  async function saveCompletion(choreId: string, checkbox: HTMLInputElement, completed: boolean, item: HTMLElement | null) {
+      const titleEl = checkbox.closest('label')?.querySelector<HTMLElement>('.chore-title');
+      const group = checkbox.closest<HTMLElement>('[data-chore-group]');
       checkbox.disabled = true;
       titleEl?.setAttribute('data-done', String(completed));
       if (group) updateGroupCount(group);
@@ -148,9 +241,11 @@ const byMember = members
         const res = await fetch(`/api/dashboard/chores/${choreId}/toggle?${familyQuery}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ completed }),
+          body: JSON.stringify({ completed, memberId: completed && item?.dataset.bounty === 'true' ? checkbox.dataset.completerId : undefined }),
         });
         if (!res.ok) throw new Error('Request failed');
+        if (completed && item?.dataset.bounty === 'true' && checkbox.dataset.completerId) item.dataset.memberId = checkbox.dataset.completerId;
+        applyReward(checkbox, completed);
         if (completed) {
           checkbox.closest('label')?.classList.add('chore-celebrate');
           window.setTimeout(() => checkbox.closest('label')?.classList.remove('chore-celebrate'), 1100);
@@ -159,15 +254,12 @@ const byMember = members
         checkbox.checked = !completed;
         titleEl?.setAttribute('data-done', String(!completed));
         if (group) updateGroupCount(group);
+        applyReward(checkbox, !completed);
       } finally {
         checkbox.disabled = false;
+        if (!completed) delete checkbox.dataset.completerId;
       }
-    });
-  });
-  Array.from(document.querySelectorAll('[data-member-status]')).forEach((node) => { const select = node as unknown as HTMLSelectElement; select.addEventListener('change', async () => {
-    const familyId = document.querySelector<HTMLElement>('[data-chore-list]')?.dataset.familyId ?? '';
-    await fetch(`/api/dashboard/members/status?family=${encodeURIComponent(familyId)}`,  { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId: select.dataset.memberStatus, status: select.value }) });
-  }); });
+  }
   Array.from(document.querySelectorAll('[data-claim-chore]')).forEach((node) => { const select = node as unknown as HTMLSelectElement; select.addEventListener('change', async () => {
     if (!select.value) return;
     const familyId = document.querySelector<HTMLElement>('[data-chore-list]')?.dataset.familyId ?? '';

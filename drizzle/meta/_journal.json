@@ -64,6 +64,41 @@
       "when": 1790389290000,
       "tag": "0008_rotating_dashboard_address",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790693188759,
+      "tag": "0009_household_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790700000000,
+      "tag": "0010_chore_xp_goals",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790701000000,
+      "tag": "0011_availability_widget",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790702000000,
+      "tag": "0012_event_destination_details",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790960400000,
+      "tag": "0013_user_dashboard_layout",
+      "breakpoints": true
     }
   ]
 }

@@ -2,18 +2,31 @@
 const familyId = Astro.locals.familyId!;
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import ColorPicker from '../../components/ColorPicker.astro';
+import CalendarEventForm from '../../components/CalendarEventForm.astro';
 import { db } from '../../db/client';
 import { calendars } from '../../db/schema';
 import { and, eq } from 'drizzle-orm';
+import { listWritableFamilyCalendars } from '../../lib/google-calendar';
+import { getPermissions } from '../../lib/permissions';
+import { getDashboardSettings } from '../../lib/settings';
+import { householdTimezone } from '../../lib/dates';
 
 const userId = Astro.locals.session?.user?.id!;
+const perms = await getPermissions(familyId, userId);
+if (!perms.calendars.read) return Astro.redirect('/admin');
 const myCalendars = await db.query.calendars.findMany({ where: and(eq(calendars.userId, userId), eq(calendars.familyId, familyId)) });
 const members = await db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (members, { asc }) => [asc(members.sortOrder)] });
 const googleAccount = await db.query.accounts.findFirst({ where: (a, { and, eq }) => and(eq(a.userId, userId), eq(a.provider, 'google')) });
 const hasEventWriteScope = googleAccount?.scope?.split(/\s+/).includes('https://www.googleapis.com/auth/calendar.events') ?? false;
+const writableCalendars = await listWritableFamilyCalendars(familyId);
+const settings = await getDashboardSettings(familyId);
+const defaultCalendarId = writableCalendars.some((cal) => cal.id === settings.defaultEventCalendarId) ? settings.defaultEventCalendarId : 'local';
+const timezone = settings.timezone === 'auto' ? householdTimezone() : settings.timezone;
 
 const error = Astro.url.searchParams.get('error');
+const eventError = Astro.url.searchParams.get('eventError');
 const synced = Astro.url.searchParams.get('synced');
+const savedDefault = Astro.url.searchParams.get('savedDefault');
 ---
 
 <AdminLayout title="Calendars">
@@ -26,22 +39,17 @@ const synced = Astro.url.searchParams.get('synced');
     )
   }
 
-  <section class="mb-8 rounded-2xl bg-surface p-5 shadow-card">
-    <h2 class="mb-1 text-lg font-semibold">Add family event</h2>
-    <p class="mb-4 text-sm text-fg-subtle">Events appear on the dashboard in the selected family member’s color.</p>
-    {!hasEventWriteScope && <p class="mb-4 text-sm text-fg-muted">Connect Google event access to create events directly on a synced calendar. <a class="font-medium text-accent hover:underline" href={`/api/admin/calendars/connect?returnTo=${encodeURIComponent('/admin/calendars')}`}>Connect Google Calendar</a></p>}
-    <form method="POST" action="/api/admin/events" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-      <input name="title" required placeholder="Event title" class="rounded-xl bg-surface-2 px-3 py-2" />
-      <input name="start" type="datetime-local" required class="rounded-xl bg-surface-2 px-3 py-2" />
-      <input name="end" type="datetime-local" required class="rounded-xl bg-surface-2 px-3 py-2" />
-      <select name="memberId" class="rounded-xl bg-surface-2 px-3 py-2">
-        <option value="">Everyone</option>
-        {members.map((member) => <option value={member.id}>{member.name}</option>)}
-      </select>
-      <label class="flex items-center gap-2 text-sm"><input name="allDay" type="checkbox" /> All day</label>
-      <button class="rounded-full bg-accent px-5 py-2 font-medium text-white hover:bg-accent-hover sm:col-span-2 lg:col-span-5 lg:justify-self-start">Add event</button>
-    </form>
-  </section>
+  {perms.calendars.update && <section class="mb-6 rounded-2xl bg-surface p-5 shadow-card"><h2 class="mb-1 text-lg font-semibold">Default event destination</h2><p class="mb-4 text-sm text-fg-subtle">Choose where new events go by default. You can change the destination for an individual event when adding it.</p><form method="POST" action="/api/admin/settings/default-event-calendar" class="flex flex-wrap items-end gap-3"><label class="min-w-60 flex-1 text-sm font-medium">Calendar<select name="defaultEventCalendarId" class="mt-1 w-full rounded-lg border border-line bg-surface-2 px-3 py-2.5"><option value="local" selected={defaultCalendarId === 'local'}>KinBoard only</option>{writableCalendars.map((cal) => <option value={cal.id} selected={defaultCalendarId === cal.id}>Google Calendar: {cal.name}</option>)}</select></label><button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">Save default</button>{savedDefault && <span class="text-sm text-success">Default saved</span>}</form></section>}
+
+  {perms.calendars.create && (
+    <section class="mb-8 rounded-2xl bg-surface p-5 shadow-card">
+      <h2 class="mb-1 text-lg font-semibold">Add family event</h2>
+      <p class="mb-4 text-sm text-fg-subtle">Events appear on the dashboard in the selected family member’s color.</p>
+      {eventError && <p class="mb-4 text-sm text-danger">{eventError}</p>}
+      {!hasEventWriteScope && <p class="mb-4 text-sm text-fg-muted">Connect Google event access to create events directly on a synced calendar. <a class="font-medium text-accent hover:underline" href={`/api/admin/calendars/connect?returnTo=${encodeURIComponent('/admin/calendars')}`}>Connect Google Calendar</a></p>}
+      <CalendarEventForm members={members} writableCalendars={writableCalendars} defaultCalendarId={defaultCalendarId} timezone={timezone} returnTo="/admin/calendars" />
+    </section>
+  )}
   {
     synced != null && !error && (
       <div class="mb-6 rounded-2xl border border-success bg-success-soft p-4 text-sm text-success">
@@ -50,14 +58,16 @@ const synced = Astro.url.searchParams.get('synced');
     )
   }
 
-  <form method="POST" action="/api/admin/calendars/sync" class="mb-6 flex flex-wrap items-center gap-3">
-    <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
-      Sync from Google
-    </button>
-    <span class="text-sm text-fg-subtle">
-      Pulls in any calendars from your Google account not yet listed below.
-    </span>
-  </form>
+  {perms.calendars.create && (
+    <form method="POST" action="/api/admin/calendars/sync" class="mb-6 flex flex-wrap items-center gap-3">
+      <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">
+        Sync from Google
+      </button>
+      <span class="text-sm text-fg-subtle">
+        Pulls in any calendars from your Google account not yet listed below.
+      </span>
+    </form>
+  )}
 
   {
     myCalendars.length === 0 ? (
@@ -76,23 +86,29 @@ const synced = Astro.url.searchParams.get('synced');
                 style={`background-color:${cal.color}`}
               />
               <span class="min-w-0 flex-1 truncate font-medium">{cal.name}</span>
-              <ColorPicker name="color" value={cal.color} label={`Choose color for ${cal.name}`} />
-              <label class="flex items-center gap-2 text-sm text-fg-muted">
-                <input
-                  type="checkbox"
-                  name="enabled"
-                  checked={cal.enabled}
-                  class="h-4 w-4 accent-success"
-                />
-                Show on dashboard
-              </label>
-              <button
-                type="submit"
-                data-save-button
-                class="rounded-full px-4 py-1.5 text-sm font-medium text-fg-subtle transition-colors"
-              >
-                Save
-              </button>
+              {perms.calendars.update ? (
+                <>
+                  <ColorPicker name="color" value={cal.color} label={`Choose color for ${cal.name}`} />
+                  <label class="flex items-center gap-2 text-sm text-fg-muted">
+                    <input
+                      type="checkbox"
+                      name="enabled"
+                      checked={cal.enabled}
+                      class="h-4 w-4 accent-success"
+                    />
+                    Show on dashboard
+                  </label>
+                  <button
+                    type="submit"
+                    data-save-button
+                    class="rounded-full px-4 py-1.5 text-sm font-medium text-fg-subtle transition-colors"
+                  >
+                    Save
+                  </button>
+                </>
+              ) : (
+                <span class="text-sm text-fg-subtle">{cal.enabled ? 'Shown on dashboard' : 'Hidden'}</span>
+              )}
             </form>
           </li>
         ))}

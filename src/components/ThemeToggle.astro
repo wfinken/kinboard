@@ -1,4 +1,6 @@
 ---
+import Icon from './Icon.astro';
+
 interface Props {
   class?: string;
 }
@@ -10,23 +12,27 @@ const { class: className = '' } = Astro.props;
   type="button"
   data-theme-toggle
   aria-label="Toggle light and dark theme"
-  class={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-lg hover:bg-surface-3 ${className}`}
+  class={`h-10 w-10 shrink-0 rounded-full bg-surface-2 hover:bg-surface-3 ${className}`}
 >
-  <span data-theme-toggle-icon aria-hidden="true">🌙</span>
+  <Icon name="sun" class="theme-icon-sun" />
+  <Icon name="moon" class="theme-icon-moon" />
 </button>
+
+<style>
+  button {
+    display: grid;
+    place-items: center;
+  }
+  button :global(.kb-icon) {
+    grid-area: 1 / 1;
+  }
+</style>
 
 <script>
   const STORAGE_KEY = 'kinboard-theme';
 
   function currentTheme(): 'light' | 'dark' {
     return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
-  }
-
-  function syncIcons() {
-    const icon = currentTheme() === 'dark' ? '☀️' : '🌙';
-    document.querySelectorAll('[data-theme-toggle-icon]').forEach((el) => {
-      el.textContent = icon;
-    });
   }
 
   document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]').forEach((button) => {
@@ -38,9 +44,6 @@ const { class: className = '' } = Astro.props;
       } catch {
         // Private browsing etc. — the toggle still works for this page view.
       }
-      syncIcons();
     });
   });
-
-  syncIcons();
 </script>

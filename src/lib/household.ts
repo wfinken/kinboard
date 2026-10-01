@@ -1,41 +1,27 @@
-import { and, eq, gt } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { dashboardSettings, families, familyInvites, familyMemberships } from '../db/schema';
+import { dashboardSettings, families, familyInvites, familyMemberships, householdMembers } from '../db/schema';
 
-export const DASHBOARD_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+// Mirrors ColorPicker.astro's preset palette — kept separate since that's a
+// UI component's local constant, not something a lib module should import.
+const MEMBER_COLOR_PALETTE = [
+  '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e',
+  '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
+  '#8b5cf6', '#a855f7', '#d946ef', '#ec4899', '#f43f5e', '#64748b',
+];
 
-function newDashboardToken() {
-  return crypto.randomUUID().replaceAll('-', '').slice(0, 12);
-}
-
-export async function rotateDashboardToken(familyId: string, expectedToken?: string | null) {
-  const current = await db.query.families.findFirst({ where: eq(families.id, familyId) });
-  if (!current) return null;
-  if (expectedToken !== undefined && current.dashboardToken !== expectedToken) return current;
-  const now = Date.now();
-  if (expectedToken !== undefined && current.dashboardTokenExpiresAt && current.dashboardTokenExpiresAt.getTime() > now) return current;
-
-  const dashboardToken = newDashboardToken();
-  const dashboardTokenExpiresAt = new Date(now + DASHBOARD_TOKEN_TTL_MS);
-  await db.update(families).set({ dashboardToken, dashboardTokenExpiresAt }).where(eq(families.id, familyId));
-  return { ...current, dashboardToken, dashboardTokenExpiresAt };
-}
-
-export async function getActiveDashboardToken(familyId: string) {
-  const current = await db.query.families.findFirst({ where: eq(families.id, familyId) });
-  if (!current) return null;
-  if (current.dashboardToken && current.dashboardTokenExpiresAt && current.dashboardTokenExpiresAt.getTime() > Date.now()) return current;
-  return rotateDashboardToken(familyId);
-}
-
-export async function getFamilyContextByDashboardToken(token?: string | null) {
-  if (!token) return null;
-  const now = new Date();
-  const family = await db.query.families.findFirst({
-    where: and(eq(families.dashboardToken, token), gt(families.dashboardTokenExpiresAt, now)),
-  });
-  if (!family || !family.dashboardTokenExpiresAt) return null;
-  return { familyId: family.id, family };
+/** Finds or creates the householdMembers row a signed-in user is assignable
+ *  through (chores/calendar events/allowance all reference householdMembers,
+ *  not users) — id est, links their account into the same "assignable
+ *  person" table used for kids without their own sign-in. Idempotent, so
+ *  it's safe to call on every request that resolves a family. */
+export async function ensureHouseholdMemberForUser(familyId: string, userId: string, name: string) {
+  const existing = await db.query.householdMembers.findFirst({ where: eq(householdMembers.userId, userId) });
+  if (existing) return existing;
+  const memberCount = await db.$count(householdMembers, eq(householdMembers.familyId, familyId));
+  const color = MEMBER_COLOR_PALETTE[memberCount % MEMBER_COLOR_PALETTE.length];
+  await db.insert(householdMembers).values({ familyId, userId, name, color }).onConflictDoNothing({ target: householdMembers.userId });
+  return db.query.householdMembers.findFirst({ where: eq(householdMembers.userId, userId) });
 }
 
 export async function getFamilyIdForUser(userId?: string | null): Promise<string | null> {
@@ -60,12 +46,6 @@ export async function getFamilyContext(request: Request, userId?: string | null)
   if (!familyId) return null;
   const family = await db.query.families.findFirst({ where: eq(families.id, familyId) });
   return family ? { familyId, family, request } : null;
-}
-
-export async function getFamilyContextById(familyId?: string | null) {
-  if (!familyId) return null;
-  const family = await db.query.families.findFirst({ where: eq(families.id, familyId) });
-  return family ? { familyId, family } : null;
 }
 
 export async function joinFamily(userId: string, token: string): Promise<boolean> {

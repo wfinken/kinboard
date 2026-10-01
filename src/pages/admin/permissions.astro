@@ -1,0 +1,73 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../db/client';
+import { familyMemberships, users, PERMISSION_FEATURES } from '../../db/schema';
+import { and, eq, ne } from 'drizzle-orm';
+import { getPermissions, isOwner } from '../../lib/permissions';
+
+const familyId = Astro.locals.familyId!;
+const userId = Astro.locals.session!.user!.id;
+if (!(await isOwner(familyId, userId))) return Astro.redirect('/admin');
+
+const members = await db
+  .select({ userId: familyMemberships.userId, name: users.name, email: users.email })
+  .from(familyMemberships)
+  .innerJoin(users, eq(users.id, familyMemberships.userId))
+  .where(and(eq(familyMemberships.familyId, familyId), ne(familyMemberships.role, 'owner')));
+
+const memberPermissions = await Promise.all(members.map((member) => getPermissions(familyId, member.userId)));
+
+const FEATURE_LABELS: Record<(typeof PERMISSION_FEATURES)[number], string> = {
+  calendars: 'Calendars',
+  chores: 'Chores',
+  meals: 'Meals',
+  notes: 'Notes',
+  allowance: 'Allowance',
+  family: 'Family & Members',
+};
+const ACTIONS = ['create', 'read', 'update', 'delete'] as const;
+---
+
+<AdminLayout title="Permissions">
+  <div class="mb-6 rounded-2xl bg-surface p-5 shadow-card sm:p-6">
+    <p class="text-xs font-semibold uppercase tracking-wider text-accent">Owner-only</p>
+    <h2 class="mt-1 text-xl font-semibold">Family member permissions</h2>
+    <p class="mt-1 text-sm text-fg-muted">Control what each family member can view, add, edit, or remove in each area. You're the owner, so your own access can't be restricted here.</p>
+  </div>
+
+  {members.length === 0 && <p class="rounded-2xl bg-surface p-5 text-sm text-fg-subtle shadow-card">No other signed-in family members yet — invite one from the <a href="/admin/family" class="text-accent hover:underline">Family</a> page.</p>}
+
+  {members.map((member, index) => {
+    const current = memberPermissions[index];
+    return (
+      <section id={member.userId} class="mb-6 rounded-2xl bg-surface p-5 shadow-card sm:p-6">
+        <h3 class="text-lg font-semibold">{member.name || member.email}</h3>
+        <form method="POST" action={`/api/admin/permissions/${member.userId}`} class="mt-4">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[480px] border-separate border-spacing-y-1 text-sm">
+              <thead>
+                <tr class="text-left text-xs uppercase tracking-wide text-fg-subtle">
+                  <th class="pb-2 pr-3 font-medium">Feature</th>
+                  {ACTIONS.map((action) => <th class="pb-2 px-2 text-center font-medium capitalize">{action}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {PERMISSION_FEATURES.map((feature) => (
+                  <tr class="rounded-xl bg-surface-2/60">
+                    <td class="rounded-l-xl px-3 py-2.5 font-medium">{FEATURE_LABELS[feature]}</td>
+                    {ACTIONS.map((action, actionIndex) => (
+                      <td class={`px-2 py-2.5 text-center ${actionIndex === ACTIONS.length - 1 ? 'rounded-r-xl' : ''}`}>
+                        <input type="checkbox" name={`${feature}.${action}`} checked={current[feature][action]} class="h-4 w-4 accent-success" />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button class="mt-4 rounded-full bg-success px-5 py-2.5 text-sm font-semibold text-white hover:bg-success-hover">Save permissions</button>
+        </form>
+      </section>
+    );
+  })}
+</AdminLayout>

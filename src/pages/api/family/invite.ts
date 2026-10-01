@@ -2,8 +2,11 @@ import type { APIRoute } from 'astro';
 import { db } from '../../../db/client';
 import { familyInvites } from '../../../db/schema';
 import qrcode from 'qrcode-generator';
+import { requirePermission } from '../../../lib/permissions';
 
 export const POST: APIRoute = async ({ locals, request }) => {
+  const denied = await requirePermission(locals, 'family', 'create');
+  if (denied) return denied;
   const familyId = locals.familyId;
   const userId = locals.session?.user?.id;
   if (!familyId || !userId) return new Response('Family required', { status: 409 });

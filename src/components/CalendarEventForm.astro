@@ -1,0 +1,43 @@
+---
+import type { WritableCalendar } from '../lib/google-calendar';
+
+interface Props {
+  members: Array<{ id: string; name: string }>;
+  writableCalendars: WritableCalendar[];
+  defaultCalendarId: string;
+  timezone: string;
+  returnTo: string;
+  compact?: boolean;
+  fixedDefault?: boolean;
+}
+const { members, writableCalendars, defaultCalendarId, timezone, returnTo, compact = false, fixedDefault = false } = Astro.props;
+---
+<form method="POST" action="/api/admin/events" class={compact ? 'space-y-4 p-6' : 'grid gap-3 rounded-2xl bg-surface p-5 shadow-card sm:grid-cols-2'}>
+  <input type="hidden" name="returnTo" value={returnTo} />
+  <input type="hidden" name="eventTimezone" value={timezone} />
+  <label class="block text-sm text-fg-muted sm:col-span-2">Event title<input name="title" required maxlength="200" autofocus placeholder="What’s happening?" class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /></label>
+  <label class="flex items-center gap-2 text-sm text-fg-muted sm:col-span-2"><input type="checkbox" name="allDay" data-all-day /> All day</label>
+  <label class="block text-sm text-fg-muted">Starts<input name="start" type="datetime-local" required data-event-date class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /></label>
+  <label class="block text-sm text-fg-muted">Ends<input name="end" type="datetime-local" required data-event-date class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /></label>
+  <label class="block text-sm text-fg-muted">Location<input name="location" maxlength="500" placeholder="Add a place" class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /></label>
+  <label class="block text-sm text-fg-muted">For<select name="memberId" class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5"><option value="">Everyone</option>{members.map((member) => <option value={member.id}>{member.name}</option>)}</select></label>
+  <label class="block text-sm text-fg-muted sm:col-span-2">Description<textarea name="description" rows="3" maxlength="5000" placeholder="Add notes or details" class="mt-1 w-full resize-y rounded-xl border border-line bg-surface-2 px-3 py-2.5"></textarea></label>
+  {fixedDefault ? <input type="hidden" name="calendarId" value={defaultCalendarId} /> : <label class="block text-sm text-fg-muted sm:col-span-2">Add to<select name="calendarId" class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5"><option value="local" selected={defaultCalendarId === 'local'}>KinBoard only</option>{writableCalendars.map((cal) => <option value={cal.id} selected={defaultCalendarId === cal.id}>Google Calendar: {cal.name}</option>)}</select></label>}
+  <p class="text-xs text-fg-subtle sm:col-span-2">Times use {timezone}. {fixedDefault ? `This event will be added to ${defaultCalendarId === 'local' ? 'KinBoard only' : 'your default Google Calendar'}.` : ''}</p>
+  {!writableCalendars.length && defaultCalendarId === 'local' && <p class="text-sm text-fg-muted sm:col-span-2">No writable Google calendars connected. You can still add this event to KinBoard.</p>}
+  <button class="rounded-xl bg-accent px-4 py-3 font-semibold text-white hover:bg-accent-hover sm:col-span-2">Add event</button>
+</form>
+
+<script>
+  const eventForms = document.querySelectorAll('form[action="/api/admin/events"]');
+  eventForms.forEach((formNode) => {
+    const form = formNode as unknown as HTMLFormElement;
+    const allDay = form.querySelector('[data-all-day]') as unknown as HTMLInputElement | null;
+    allDay?.addEventListener('change', () => {
+      form.querySelectorAll('[data-event-date]').forEach((node) => {
+        const input = node as unknown as HTMLInputElement;
+        input.type = allDay.checked ? 'date' : 'datetime-local';
+      });
+    });
+  });
+</script>

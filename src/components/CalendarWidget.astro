@@ -1,24 +1,24 @@
 ---
 const familyId = Astro.locals.familyId!;
-import { fetchUpcomingEvents, type CalendarEvent } from '../lib/google-calendar';
+import { fetchUpcomingEvents, listWritableFamilyCalendars, type CalendarEvent } from '../lib/google-calendar';
 import { householdTimezone, zonedCalendarDate, zonedDateKey, dateKeyUTC } from '../lib/dates';
 import { getDashboardSettings } from '../lib/settings';
 import { db } from '../db/client';
+import CalendarEventForm from './CalendarEventForm.astro';
 
+interface Props { canCreate?: boolean; canDelete?: boolean }
+const { canCreate = true, canDelete = true } = Astro.props;
+
+// Today gets its own row above the grid, so the grid itself covers the
+// DAY_COUNT days after today.
 const DAY_COUNT = 4;
 
 const members = await db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (m, { asc }) => asc(m.sortOrder) });
-const writableCalendars = Astro.locals.session?.user?.id
-  ? await db.query.calendars.findMany({ where: (c, { and, eq }) => and(eq(c.familyId, familyId), eq(c.userId, Astro.locals.session!.user!.id), eq(c.enabled, true)) })
-  : [];
-const googleAccount = Astro.locals.session?.user?.id
-  ? await db.query.accounts.findFirst({ where: (a, { and, eq }) => and(eq(a.userId, Astro.locals.session!.user!.id), eq(a.provider, 'google')) })
-  : null;
-const hasEventWriteScope = googleAccount?.scope?.split(/\s+/).includes('https://www.googleapis.com/auth/calendar.events') ?? false;
+const writableCalendars = await listWritableFamilyCalendars(familyId);
 
 const now = new Date();
 const rangeEnd = new Date(now);
-rangeEnd.setDate(rangeEnd.getDate() + DAY_COUNT);
+rangeEnd.setDate(rangeEnd.getDate() + DAY_COUNT + 1);
 
 const events = await fetchUpcomingEvents(familyId, now, rangeEnd);
 
@@ -26,10 +26,11 @@ const events = await fetchUpcomingEvents(familyId, now, rangeEnd);
 // regardless of where the household actually is) — see lib/dates.ts.
 const settings = await getDashboardSettings(familyId);
 const timezone = settings.timezone === 'auto' ? householdTimezone() : settings.timezone;
+const defaultCalendarId = writableCalendars.some((cal) => cal.id === settings.defaultEventCalendarId) ? settings.defaultEventCalendarId : 'local';
 const today = zonedCalendarDate(now, timezone);
 const days = Array.from({ length: DAY_COUNT }, (_, i) => {
   const d = new Date(today);
-  d.setUTCDate(d.getUTCDate() + i);
+  d.setUTCDate(d.getUTCDate() + i + 1);
   return d;
 });
 
@@ -68,29 +69,57 @@ const eventsByDay = events.reduce<Record<string, CalendarEvent[]>>((acc, event) 
 }, {});
 
 const todayKey = dateKey(today);
+const todayEvents = [...(eventsByDay[todayKey] ?? [])].sort((a, b) => a.start.localeCompare(b.start));
 ---
 
 <div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6">
-  <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold">
+  <h2 class="mb-3 flex items-center gap-2 text-lg font-semibold">
     <span aria-hidden="true">📅</span> Calendar
-    <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="calendar-dialog">＋ Add</button>
+    {canCreate && <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="calendar-dialog">＋ Add</button>}
   </h2>
+
+  <div class="calendar-today-row">
+    <div class="calendar-today-label">
+      <span class="calendar-today-badge">{today.getUTCDate()}</span>
+      <div>
+        <p class="calendar-today-kicker">Today</p>
+        <p class="calendar-today-name">{today.toLocaleDateString([], { weekday: 'long', timeZone: 'UTC' })}</p>
+      </div>
+    </div>
+    <div class="calendar-today-events">
+      {todayEvents.length === 0 ? (
+        <p class="text-sm text-fg-subtle">No events today</p>
+      ) : (
+        todayEvents.map((event) => (
+          <div class="calendar-today-chip" style={`background-color:${event.color}22; border-color:${event.color}`}>
+            {event.calendarId === 'local' && canDelete && (
+              <form method="POST" action={`/api/admin/events/${event.id}/delete`} class="calendar-event-delete-form">
+                <button type="submit" class="calendar-event-delete" aria-label={`Delete ${event.title}`}>×</button>
+              </form>
+            )}
+            <p class="truncate pr-4 font-medium" title={event.description}>{event.title}</p>
+            {event.memberName && <span class="truncate font-semibold" style={`color:${event.color}`}>{event.memberName}</span>}
+            <span class="truncate text-fg-muted">{timeLabel(event, timezone)}</span>
+            {event.location && <span class="truncate text-fg-subtle">{event.location}</span>}
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+
   <div class="grid grid-cols-4 gap-2 sm:gap-3">
         {days.map((day) => {
           const key = dateKey(day);
-          const isToday = key === todayKey;
           const dayEvents = [...(eventsByDay[key] ?? [])].sort((a, b) =>
             a.start.localeCompare(b.start),
           );
           return (
-            <div class={`min-w-0 rounded-2xl p-2 sm:p-3 ${isToday ? 'calendar-day-today' : 'calendar-day'}`}>
+            <div class="calendar-day min-w-0 rounded-2xl p-2 sm:p-3">
               <div class="mb-2 text-center">
                 <div class="text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
                   {day.toLocaleDateString([], { weekday: 'short', timeZone: 'UTC' })}
                 </div>
-                <div
-                  class={`mx-auto mt-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold ${isToday ? 'bg-accent text-white' : 'text-fg'}`}
-                >
+                <div class="mx-auto mt-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold text-fg">
                   {day.getUTCDate()}
                 </div>
               </div>
@@ -100,12 +129,18 @@ const todayKey = dateKey(today);
                 ) : (
                   dayEvents.map((event) => (
                     <div
-                      class="min-w-0 rounded-lg border-l-4 px-2 py-1.5 text-xs leading-tight"
+                      class="relative min-w-0 rounded-lg border-l-4 px-2 py-1.5 text-xs leading-tight"
                       style={`background-color:${event.color}22; border-color:${event.color}`}
                     >
-                      <p class="truncate font-medium">{event.title}</p>
+                      {event.calendarId === 'local' && canDelete && (
+                        <form method="POST" action={`/api/admin/events/${event.id}/delete`} class="calendar-event-delete-form">
+                          <button type="submit" class="calendar-event-delete" aria-label={`Delete ${event.title}`}>×</button>
+                        </form>
+                      )}
+                      <p class="truncate pr-4 font-medium" title={event.description}>{event.title}</p>
                       {event.memberName && <p class="truncate text-[10px] font-semibold" style={`color:${event.color}`}>{event.memberName}</p>}
                       <p class="truncate text-[11px] font-medium text-fg-muted">{timeLabel(event, timezone)}</p>
+                      {event.location && <p class="truncate text-[10px] text-fg-subtle">{event.location}</p>}
                     </div>
                   ))
                 )}
@@ -116,18 +151,9 @@ const todayKey = dateKey(today);
   </div>
 </div>
 
-<dialog id="calendar-dialog" class="fixed inset-0 m-auto w-[min(92vw,28rem)] rounded-3xl bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60">
-  <form method="POST" action="/api/admin/events" class="space-y-4 p-6">
-    <input type="hidden" name="returnTo" value="/" />
-    <div class="flex items-center justify-between"><h3 class="text-xl font-semibold">Add calendar item</h3><button type="button" class="text-2xl text-fg-muted" data-close-dialog aria-label="Close">×</button></div>
-    <input name="title" required autofocus placeholder="What’s happening?" class="w-full rounded-xl border border-line bg-surface-2 px-3 py-3" />
-    <label class="flex items-center gap-2 text-sm text-fg-muted"><input type="checkbox" name="allDay" data-all-day /> All day</label>
-    <div class="grid grid-cols-2 gap-3"><label class="text-sm text-fg-muted">Starts<input name="start" type="datetime-local" required class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /></label><label class="text-sm text-fg-muted" data-end-wrap>Ends<input name="end" type="datetime-local" required class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5" /></label></div>
-    <label class="block text-sm text-fg-muted">For<select name="memberId" class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5"><option value="">Everyone</option>{members.map((m) => <option value={m.id}>{m.name}</option>)}</select></label>
-    <label class="block text-sm text-fg-muted">Add to<select name="calendarId" class="mt-1 w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5"><option value="">KinBoard only</option>{hasEventWriteScope && writableCalendars.map((cal) => <option value={cal.id}>Google: {cal.name}</option>)}</select></label>
-    {!hasEventWriteScope && <p class="text-sm text-fg-muted">To add events to Google Calendar, <a class="font-medium text-accent hover:underline" href={`/api/admin/calendars/connect?returnTo=${encodeURIComponent('/')}`}>connect event access</a> first.</p>}
-    <button class="w-full rounded-xl bg-accent px-4 py-3 font-semibold text-white hover:bg-accent-hover">Add to calendar</button>
-  </form>
+<dialog id="calendar-dialog" class="fixed inset-0 m-auto w-[min(92vw,34rem)] rounded-3xl bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/60">
+  <div class="flex items-center justify-between px-6 pt-5"><h3 class="text-xl font-semibold">Add event</h3><button type="button" class="text-2xl text-fg-muted" data-close-dialog aria-label="Close">×</button></div>
+  <CalendarEventForm members={members} writableCalendars={writableCalendars} defaultCalendarId={defaultCalendarId} timezone={timezone} returnTo="/" compact fixedDefault />
 </dialog>
 
 <script>
@@ -139,7 +165,8 @@ const todayKey = dateKey(today);
       const now = new Date();
       now.setMinutes(Math.ceil(now.getMinutes() / 15) * 15, 0, 0);
       const later = new Date(now.getTime() + 60 * 60 * 1000);
-      const value = (date: Date) => date.toISOString().slice(0, 16);
+      const pad = (part: number) => String(part).padStart(2, '0');
+      const value = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
       start.value = value(now);
       if (end) end.value = value(later);
     }
@@ -147,21 +174,23 @@ const todayKey = dateKey(today);
   });
   dialog?.querySelector('[data-close-dialog]')?.addEventListener('click', () => dialog.close());
   dialog?.addEventListener('click', (event) => { if (event.target === dialog) dialog.close(); });
-  dialog?.querySelector<HTMLInputElement>('[data-all-day]')?.addEventListener('change', (event) => {
-    const allDay = (event.target as HTMLInputElement).checked;
-    const start = dialog.querySelector<HTMLInputElement>('[name="start"]');
-    const end = dialog.querySelector<HTMLInputElement>('[name="end"]');
-    const endWrap = dialog.querySelector<HTMLElement>('[data-end-wrap]');
-    if (start) start.type = allDay ? 'date' : 'datetime-local';
-    if (end) { end.required = !allDay; end.type = allDay ? 'date' : 'datetime-local'; }
-    if (endWrap) endWrap.classList.toggle('hidden', allDay);
-  });
 </script>
 
 <style>
   .calendar-day { background: var(--color-surface-2); box-shadow: inset -1px 0 0 var(--color-line-subtle); }
   .calendar-day:nth-child(even) { background: var(--color-surface); }
-  .calendar-day-today { background: var(--color-accent-soft); box-shadow: inset 0 0 0 1px var(--color-accent); }
-  .calendar-day-today .text-fg-subtle { color: var(--color-fg-muted); }
   .calendar-day [style*="background-color"] { color: var(--color-fg); }
+
+  .calendar-today-row { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--color-line-subtle); }
+  .calendar-today-label { display: flex; flex-shrink: 0; align-items: center; gap: 8px; min-width: 110px; }
+  .calendar-today-badge { display: grid; width: 32px; height: 32px; flex-shrink: 0; place-items: center; border-radius: 50%; background: var(--color-accent); color: #fff; font-weight: 700; }
+  .calendar-today-kicker { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-fg-subtle); }
+  .calendar-today-name { font-weight: 600; }
+  .calendar-today-events { display: flex; flex: 1; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+  .calendar-today-chip { position: relative; display: flex; min-width: 130px; max-width: 220px; flex-wrap: wrap; column-gap: 6px; border-left: 4px solid; border-radius: .6rem; padding: 5px 10px; font-size: 12px; line-height: 1.35; }
+  .calendar-today-chip p { flex-basis: 100%; }
+
+  .calendar-event-delete-form { position: absolute; top: 2px; right: 2px; }
+  .calendar-event-delete { display: grid; width: 16px; height: 16px; place-items: center; border-radius: 50%; background: rgba(0,0,0,.12); color: var(--color-fg-muted); font-size: 12px; line-height: 1; cursor: pointer; }
+  .calendar-event-delete:hover { background: var(--color-danger); color: #fff; }
 </style>

@@ -4,6 +4,9 @@ import { db } from '../db/client';
 import { desc } from 'drizzle-orm';
 import { stickyNotes } from '../db/schema';
 
+interface Props { canCreate?: boolean }
+const { canCreate = true } = Astro.props;
+
 const notes = await db.query.stickyNotes.findMany({
   where: (n, { eq }) => eq(n.familyId, familyId),
   orderBy: desc(stickyNotes.createdAt),
@@ -14,7 +17,7 @@ const notes = await db.query.stickyNotes.findMany({
 <div class="rounded-3xl bg-surface p-5 shadow-card sm:p-6">
   <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold">
     <span aria-hidden="true">📌</span> Fridge Notes
-    <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="note-dialog">＋ Add</button>
+    {canCreate && <button type="button" class="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted hover:bg-surface-2 hover:text-fg" data-open-dialog="note-dialog">＋ Add</button>}
   </h2>
   {
     notes.length === 0 ? (

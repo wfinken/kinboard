@@ -1,8 +1,11 @@
 import type { APIRoute } from 'astro';
 import { db } from '../../../../db/client';
 import { stickyNotes } from '../../../../db/schema';
+import { requirePermission } from '../../../../lib/permissions';
 
 export const POST: APIRoute = async ({ request, redirect, locals }) => {
+  const denied = await requirePermission(locals, 'notes', 'create');
+  if (denied) return denied;
   const form = await request.formData();
   const drawing = String(form.get('drawing') ?? '').trim();
   const media = form.get('media');

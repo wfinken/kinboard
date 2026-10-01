@@ -22,17 +22,20 @@ const settings = await getDashboardSettings(Astro.locals.familyId);
 
   <section class="mb-5 rounded-2xl bg-surface p-5 shadow-card sm:p-6">
     <h3 class="text-lg font-semibold">Sign-in profile</h3>
-    <dl class="mt-4 grid gap-4 sm:grid-cols-2">
+    <div class="mt-4 grid gap-4 sm:grid-cols-2">
       <div class="rounded-xl bg-surface-2/60 p-4">
-        <dt class="text-sm text-fg-muted">Name</dt>
-        <dd class="mt-1 font-medium">{user?.name || 'Not provided'}</dd>
+        <label class="block text-sm text-fg-muted" for="name">Display name</label>
+        <form method="POST" action="/api/admin/account/name" class="mt-1 flex items-center gap-2">
+          <input id="name" name="name" required value={user?.name ?? ''} placeholder="Your name" class="w-full rounded-lg border border-line bg-surface px-3 py-2 font-medium" />
+          <button class="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover">Save</button>
+        </form>
       </div>
       <div class="rounded-xl bg-surface-2/60 p-4">
         <dt class="text-sm text-fg-muted">Email</dt>
         <dd class="mt-1 break-all font-medium">{user?.email || 'Not available'}</dd>
       </div>
-    </dl>
-    <p class="mt-4 text-sm text-fg-subtle">KinBoard gets this profile from your sign-in provider. To change your name or email, update it with that provider.</p>
+    </div>
+    <p class="mt-4 text-sm text-fg-subtle">Your display name shows up on chores, calendar events, and allowance — anywhere you're assigned something. Email comes from your sign-in provider and can't be changed here.</p>
   </section>
 
   <section class="mb-5 rounded-2xl bg-surface p-5 shadow-card sm:p-6">

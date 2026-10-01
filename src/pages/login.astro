@@ -7,6 +7,8 @@ import { getDashboardSettings } from '../lib/settings';
 const csrfUrl = new URL('/api/auth/csrf', Astro.url);
 const csrfResponse = await Auth(new Request(csrfUrl, { headers: Astro.request.headers }), authConfig);
 const { csrfToken } = (await csrfResponse.json()) as { csrfToken: string };
+const csrfCookie = csrfResponse.headers.get('set-cookie');
+if (csrfCookie) Astro.response.headers.append('Set-Cookie', csrfCookie);
 const requestedCallback = Astro.url.searchParams.get('callbackUrl');
 const callbackUrl = requestedCallback && requestedCallback !== '/' ? requestedCallback : '/welcome';
 const { theme } = await getDashboardSettings(Astro.locals.familyId);

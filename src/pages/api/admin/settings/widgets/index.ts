@@ -25,7 +25,8 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
     if (size === '1x1' || size === '2x1' || size === '2x2') widgetSizes[id] = size;
   }
 
-  await saveDashboardSettings({ widgetOrder, refreshSeconds, theme, timezone, widgetSizes }, locals.familyId);
+  const mergedOrder = [...widgetOrder, ...current.widgetOrder.filter((id) => !widgetOrder.includes(id))];
+  await saveDashboardSettings({ widgetOrder: mergedOrder, refreshSeconds, theme, timezone, widgetSizes, defaultEventCalendarId: current.defaultEventCalendarId }, locals.familyId);
 
   return redirect('/admin/layout');
 };

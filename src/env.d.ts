@@ -5,7 +5,6 @@ declare namespace App {
     session?: import('@auth/core/types').Session | null;
     familyId?: string | null;
     family?: import('./db/schema').families.$inferSelect | null;
-    refreshDashboardCookie?: boolean;
   }
 }
 

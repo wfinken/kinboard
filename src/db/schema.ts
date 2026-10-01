@@ -30,6 +30,22 @@ export const familyMemberships = sqliteTable('family_membership', {
   joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
 }, (membership) => [primaryKey({ columns: [membership.familyId, membership.userId] })]);
 
+// A user + feature pair with no row here has full access — see
+// hasPermission in lib/permissions.ts. Rows only need to be written when the
+// owner actually restricts someone, so existing members need no backfill.
+export const PERMISSION_FEATURES = ['calendars', 'chores', 'meals', 'notes', 'allowance', 'family'] as const;
+export type PermissionFeature = (typeof PERMISSION_FEATURES)[number];
+
+export const permissions = sqliteTable('permission', {
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  feature: text('feature', { enum: PERMISSION_FEATURES }).notNull(),
+  canCreate: integer('can_create', { mode: 'boolean' }).notNull().default(true),
+  canRead: integer('can_read', { mode: 'boolean' }).notNull().default(true),
+  canUpdate: integer('can_update', { mode: 'boolean' }).notNull().default(true),
+  canDelete: integer('can_delete', { mode: 'boolean' }).notNull().default(true),
+}, (permission) => [primaryKey({ columns: [permission.userId, permission.feature] })]);
+
 export const familyInvites = sqliteTable('family_invite', {
   token: text('token').primaryKey(),
   familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
@@ -87,6 +103,10 @@ export const householdMembers = sqliteTable('household_member', {
   color: text('color').notNull().default('#38bdf8'),
   sortOrder: integer('sort_order').notNull().default(0),
   familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+  // Set for a member who also has their own sign-in (see ensureHouseholdMemberForUser)
+  // — unique so a signed-in user maps to at most one assignable member. NULL
+  // for household members without their own account, e.g. young kids.
+  userId: text('user_id').unique().references(() => users.id, { onDelete: 'cascade' }),
 });
 
 export const calendars = sqliteTable('calendar', {
@@ -111,6 +131,8 @@ export const calendarEvents = sqliteTable('calendar_event', {
   end: text('end').notNull(),
   allDay: integer('all_day', { mode: 'boolean' }).notNull().default(false),
   memberId: text('member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
+  location: text('location').notNull().default(''),
+  description: text('description').notNull().default(''),
 });
 
 export const chores = sqliteTable('chore', {
@@ -130,6 +152,7 @@ export const chores = sqliteTable('chore', {
   rotationMemberId: text('rotation_member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
   rewardPoints: integer('reward_points').notNull().default(1),
   rewardCents: integer('reward_cents').notNull().default(0),
+  rewardType: text('reward_type', { enum: ['xp', 'allowance'] }).notNull().default('xp'),
   bounty: integer('bounty', { mode: 'boolean' }).notNull().default(false),
   allowanceEnabled: integer('allowance_enabled', { mode: 'boolean' }).notNull().default(false),
   maxBidCents: integer('max_bid_cents').notNull().default(0),
@@ -169,9 +192,19 @@ export const choreCompletions = sqliteTable(
     familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
     periodKey: text('period_key').notNull(),
     completedAt: integer('completed_at', { mode: 'timestamp_ms' }).notNull(),
+    memberId: text('member_id').references(() => householdMembers.id, { onDelete: 'set null' }),
   },
   (cc) => [primaryKey({ columns: [cc.choreId, cc.periodKey] })],
 );
+
+export const xpGoals = sqliteTable('xp_goal', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+  memberId: text('member_id').references(() => householdMembers.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  targetPoints: integer('target_points').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().$defaultFn(() => new Date()),
+});
 
 export const choreClaims = sqliteTable('chore_claim', {
   familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
@@ -212,7 +245,7 @@ export const stickyNotes = sqliteTable('sticky_note', {
     .$defaultFn(() => new Date()),
 });
 
-export const DASHBOARD_WIDGETS = ['clock', 'weather', 'calendar', 'meals', 'chores', 'allowance', 'notes'] as const;
+export const DASHBOARD_WIDGETS = ['clock', 'weather', 'calendar', 'meals', 'chores', 'availability', 'allowance', 'notes'] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGETS)[number];
 
 // Single-household settings singleton (id is always 'default'). Multi-household
@@ -224,12 +257,22 @@ export const dashboardSettings = sqliteTable('dashboard_settings', {
   widgetOrder: text('widget_order', { mode: 'json' })
     .notNull()
     .$type<DashboardWidgetId[]>()
-    .default(sql`'["clock","weather","calendar","meals","chores","notes"]'`),
+    .default(sql`'["clock","weather","calendar","meals","chores","availability","notes"]'`),
   refreshSeconds: integer('refresh_seconds').notNull().default(300),
   theme: text('theme', { enum: ['light', 'dark'] }).notNull().default('dark'),
   timezone: text('timezone').notNull().default('auto'),
   widgetSizes: text('widget_sizes', { mode: 'json' })
     .notNull()
     .$type<Partial<Record<DashboardWidgetId, '1x1' | '2x1' | '2x2'>>>()
-    .default(sql`'{"clock":"1x1","weather":"2x1","calendar":"2x2","meals":"1x1","chores":"2x1","allowance":"1x1","notes":"1x1"}'`),
+    .default(sql`'{"clock":"1x1","weather":"2x1","calendar":"2x2","meals":"1x1","chores":"2x1","availability":"1x1","allowance":"1x1","notes":"1x1"}'`),
+  defaultEventCalendarId: text('default_event_calendar_id').notNull().default('local'),
 });
+
+// Personal dashboard layout for each signed-in family member. Admin display
+// settings remain the defaults; these rows only override that user's layout.
+export const userDashboardLayouts = sqliteTable('user_dashboard_layout', {
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
+  widgetOrder: text('widget_order', { mode: 'json' }).notNull().$type<DashboardWidgetId[]>(),
+  widgetSizes: text('widget_sizes', { mode: 'json' }).notNull().$type<Partial<Record<DashboardWidgetId, '1x1' | '2x1' | '2x2'>>>(),
+}, (layout) => [primaryKey({ columns: [layout.userId, layout.familyId] })]);

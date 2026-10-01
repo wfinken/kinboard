@@ -4,6 +4,10 @@ import { desc } from 'drizzle-orm';
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { db } from '../../db/client';
 import { allowanceBids, allowanceLedger } from '../../db/schema';
+import { getPermissions } from '../../lib/permissions';
+
+const perms = await getPermissions(familyId, Astro.locals.session!.user!.id);
+if (!perms.allowance.read) return Astro.redirect('/admin');
 
 const [ledger, bids, allChores, members] = await Promise.all([
   db.query.allowanceLedger.findMany({ where: (l, { eq }) => eq(l.familyId, familyId), orderBy: desc(allowanceLedger.createdAt) }),
@@ -28,6 +32,7 @@ const statusLabel: Record<string, string> = { pending: 'Awaiting approval', appr
     <article class="rounded-2xl bg-surface p-5 shadow-card"><p class="text-sm text-fg-muted">Bids to review</p><p class="mt-2 text-3xl font-bold">{pendingBids.length}</p><p class="mt-1 text-xs text-fg-subtle">Approval assigns the chore to the bidder</p></article>
   </div>
 
+  {perms.allowance.create && (
   <section class="mb-6 rounded-2xl bg-surface p-5 shadow-card sm:p-6">
     <h2 class="text-lg font-semibold">Add money to the pool</h2>
     <p class="mb-4 mt-1 text-sm text-fg-muted">Record money you’ve set aside for allowance. Approved bids reserve funds; completed chores are paid from the pool.</p>
@@ -37,6 +42,7 @@ const statusLabel: Record<string, string> = { pending: 'Awaiting approval', appr
       <button class="rounded-full bg-success px-5 py-2.5 font-semibold text-white hover:bg-success-hover">Add funds</button>
     </form>
   </section>
+  )}
 
   <section class="mb-6 rounded-2xl bg-surface p-5 shadow-card sm:p-6">
     <h2 class="mb-1 text-lg font-semibold">Review chore bids</h2>
@@ -46,7 +52,7 @@ const statusLabel: Record<string, string> = { pending: 'Awaiting approval', appr
       const member = memberById.get(bid.memberId);
       return <li class="flex flex-wrap items-center gap-3 rounded-xl bg-surface-2/60 p-4">
         <div class="min-w-0 flex-1"><p class="font-semibold">{chore?.title ?? 'Removed chore'} · ${ (bid.amountCents / 100).toFixed(2) }</p><p class="text-sm text-fg-muted">Bid by {member?.name ?? 'Family member'} · max ${( (chore?.maxBidCents ?? 0) / 100).toFixed(2)}</p></div>
-        <form method="POST" action={`/api/admin/allowance/bids/${bid.id}`} class="flex gap-2"><button name="decision" value="approve" class="rounded-full bg-success px-4 py-2 text-sm font-semibold text-white hover:bg-success-hover">Approve</button><button name="decision" value="reject" class="rounded-full bg-surface-3 px-4 py-2 text-sm font-medium hover:bg-surface-3-hover">Decline</button></form>
+        {perms.allowance.update ? <form method="POST" action={`/api/admin/allowance/bids/${bid.id}`} class="flex gap-2"><button name="decision" value="approve" class="rounded-full bg-success px-4 py-2 text-sm font-semibold text-white hover:bg-success-hover">Approve</button><button name="decision" value="reject" class="rounded-full bg-surface-3 px-4 py-2 text-sm font-medium hover:bg-surface-3-hover">Decline</button></form> : <span class="text-sm text-fg-subtle">Awaiting review</span>}
       </li>;
     })}</ul> : <p class="rounded-xl bg-surface-2/60 p-4 text-sm text-fg-muted">No bids need review.</p>}
   </section>
@@ -60,6 +66,6 @@ const statusLabel: Record<string, string> = { pending: 'Awaiting approval', appr
   <section class="rounded-2xl bg-surface p-5 shadow-card sm:p-6">
     <h2 class="mb-4 text-lg font-semibold">Recent allowance activity</h2>
     {bids.length ? <ul class="space-y-2">{bids.slice(0, 12).map((bid) => <li class="flex flex-wrap justify-between gap-2 rounded-xl bg-surface-2/60 px-4 py-3 text-sm"><span>{memberById.get(bid.memberId)?.name ?? 'Family member'} · {choreById.get(bid.choreId)?.title ?? 'Chore'} · ${(bid.amountCents / 100).toFixed(2)}</span><span class="text-fg-muted">{statusLabel[bid.status] ?? bid.status}</span></li>)}</ul> : <p class="text-sm text-fg-muted">Bids will show here as kids submit them.</p>}
-    {ledger.length > 0 && <div class="mt-5 border-t border-line-subtle pt-4"><h3 class="mb-2 font-medium">Pool activity</h3><ul class="space-y-2">{ledger.slice(0, 8).map((entry) => <li class="flex justify-between gap-3 text-sm"><span class="text-fg-muted">{entry.note || 'Allowance pool'} · {entry.createdAt.toLocaleDateString()}</span><span class="font-medium">{entry.kind === 'deposit' ? '+' : '−'}${(entry.amountCents / 100).toFixed(2)}</span></li>)}</ul></div>}
+    {ledger.length > 0 && <div class="mt-5 border-t border-line-subtle pt-4"><h3 class="mb-2 font-medium">Pool activity</h3><ul class="space-y-2">{ledger.slice(0, 8).map((entry) => <li class="flex justify-between gap-3 text-sm"><span class="text-fg-muted">{entry.note || 'Allowance pool'}{entry.kind === 'payout' && entry.memberId ? ` · earned by ${memberById.get(entry.memberId)?.name ?? 'Family member'}` : ''} · {entry.createdAt.toLocaleDateString()}</span><span class="font-medium">{entry.kind === 'deposit' ? '+' : '−'}${(entry.amountCents / 100).toFixed(2)}</span></li>)}</ul></div>}
   </section>
 </AdminLayout>

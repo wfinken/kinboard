@@ -1,47 +1,93 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
+import ColorPicker from '../../components/ColorPicker.astro';
 import { db } from '../../db/client';
 import { familyMemberships, users } from '../../db/schema';
-import { getActiveDashboardToken } from '../../lib/household';
 import { eq } from 'drizzle-orm';
+import { getPermissions } from '../../lib/permissions';
 
 const familyId = Astro.locals.familyId!;
 const family = Astro.locals.family;
-const dashboardAddress = await getActiveDashboardToken(familyId);
-const people = await db.select({ name: users.name, email: users.email, role: familyMemberships.role }).from(familyMemberships).innerJoin(users, eq(users.id, familyMemberships.userId)).where(eq(familyMemberships.familyId, familyId));
-const dashboardUrl = dashboardAddress?.dashboardToken ? new URL(`/?family=${dashboardAddress.dashboardToken}`, Astro.url).toString() : '';
-const rotatesAt = dashboardAddress?.dashboardTokenExpiresAt?.getTime() ?? Date.now() + 60_000;
+const perms = await getPermissions(familyId, Astro.locals.session!.user!.id);
+if (!perms.family.read) return Astro.redirect('/admin');
+const [people, members] = await Promise.all([
+  db.select({ userId: familyMemberships.userId, name: users.name, email: users.email, role: familyMemberships.role }).from(familyMemberships).innerJoin(users, eq(users.id, familyMemberships.userId)).where(eq(familyMemberships.familyId, familyId)),
+  db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (m, { asc }) => asc(m.sortOrder) }),
+]);
+// Every signed-in person also gets a householdMembers row (see
+// ensureHouseholdMemberForUser) so they can be assigned chores/events —
+// pull their assignment color in here and only list the rest (no sign-in,
+// e.g. kids) as standalone "household member" rows below.
+const memberByUserId = new Map(members.filter((m) => m.userId).map((m) => [m.userId!, m]));
+const nonAuthMembers = members.filter((m) => !m.userId);
 Astro.response.headers.set('Cache-Control', 'no-store');
 ---
 
 <AdminLayout title="Family">
   <section class="rounded-2xl bg-surface p-6 shadow-card">
     <h2 class="text-xl font-semibold">{family?.name}</h2>
-    <p class="mt-1 text-sm text-fg-muted">People in this family can view and manage its shared dashboard.</p>
+    <p class="mt-1 text-sm text-fg-muted">Everyone in this household — people who sign in with their own Google account, and household members like young kids who don’t need one but still get assigned chores and a calendar color.</p>
+
     <ul class="my-5 space-y-2">
-      {people.map((person) => <li class="rounded-xl bg-surface-2 px-4 py-3">{person.name || person.email} <span class="ml-2 text-xs uppercase text-fg-subtle">{person.role}</span></li>)}
+      {people.map((person) => {
+        const linkedMember = memberByUserId.get(person.userId);
+        return (
+          <li class="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-4 py-3">
+            <span class="flex items-center gap-2.5">
+              {linkedMember && (
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={`background-color:${linkedMember.color}`}>
+                  {linkedMember.name.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <span class="font-medium">{person.name || person.email}</span>
+            </span>
+            <span class="flex items-center gap-3">
+              <span class="text-xs uppercase text-fg-subtle">{person.role} · signs in</span>
+              {person.role !== 'owner' && <a href={`/admin/permissions#${person.userId}`} class="text-sm text-accent hover:underline">Permissions</a>}
+            </span>
+          </li>
+        );
+      })}
+      {nonAuthMembers.map((member) => (
+        <li class="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-4 py-3">
+          <span class="flex items-center gap-2.5">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={`background-color:${member.color}`}>
+              {member.name.slice(0, 1).toUpperCase()}
+            </span>
+            <span class="font-medium">{member.name}</span>
+          </span>
+          <span class="flex items-center gap-3">
+            <span class="text-xs uppercase text-fg-subtle">no sign-in</span>
+            {perms.family.delete && (
+              <form method="POST" action={`/api/admin/members/${member.id}/delete`}>
+                <button class="text-sm text-fg-subtle hover:text-danger">Remove</button>
+              </form>
+            )}
+          </span>
+        </li>
+      ))}
+      {people.length === 0 && nonAuthMembers.length === 0 && <p class="text-sm text-fg-subtle">No family members yet.</p>}
     </ul>
-    <form method="POST" action="/api/family/invite">
-      <button class="rounded-full bg-accent px-5 py-2.5 font-semibold text-white">Create QR invite</button>
-      <p class="mt-2 text-xs text-fg-subtle">Invite is single-use and expires in 15 minutes.</p>
-    </form>
-    <div class="mt-6 rounded-xl bg-surface-2 p-4">
-      <p class="font-semibold">Family dashboard address</p>
-      <a class="mt-1 block break-all text-sm text-accent underline" href={dashboardUrl}>{dashboardUrl}</a>
-      <p class="mt-2 text-xs text-fg-subtle">This address changes every 24 hours. Your current display stays connected; use the latest address to set up another device.</p>
-    </div>
+
+    {perms.family.create && (
+      <form method="POST" action="/api/admin/members" class="flex flex-wrap items-end gap-3 border-t border-line-subtle pt-5">
+        <div>
+          <label class="block text-sm text-fg-muted" for="name">Add a household member</label>
+          <input id="name" name="name" required placeholder="e.g. a young child" class="mt-1 rounded-lg border border-line bg-surface-2 px-3 py-2.5" />
+        </div>
+        <div>
+          <span class="block text-sm text-fg-muted">Color</span>
+          <ColorPicker name="color" value="#38bdf8" label="Choose member color" />
+        </div>
+        <button class="rounded-full bg-success px-5 py-2.5 font-medium text-white hover:bg-success-hover">Add member</button>
+      </form>
+      <p class="mb-6 mt-2 text-xs text-fg-subtle">No Google account needed — great for kids too young to sign in themselves.</p>
+
+      <form method="POST" action="/api/family/invite" class="border-t border-line-subtle pt-5">
+        <button class="rounded-full bg-accent px-5 py-2.5 font-semibold text-white">Create QR invite</button>
+        <p class="mt-2 text-xs text-fg-subtle">Invite someone to sign in with their own Google account. The invite link is single-use and expires in 15 minutes.</p>
+      </form>
+    )}
+    <p class="mt-4 text-xs text-fg-subtle">Viewing the family dashboard requires signing in — anyone added above with their own account can open it at <a class="text-accent hover:underline" href="/">{new URL('/', Astro.url).toString()}</a>.</p>
   </section>
 </AdminLayout>
-
-<script define:vars={{ rotatesAt }}>
-  const rotateDashboardAddress = async () => {
-    try {
-      const response = await fetch('/api/family/dashboard-address/rotate', { method: 'POST' });
-      if (response.ok) window.location.reload();
-      else setTimeout(rotateDashboardAddress, 60_000);
-    } catch {
-      setTimeout(rotateDashboardAddress, 60_000);
-    }
-  };
-  setTimeout(rotateDashboardAddress, Math.max(1000, rotatesAt - Date.now() + 1000));
-</script>

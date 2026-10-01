@@ -1,0 +1,25 @@
+---
+const familyId = Astro.locals.familyId!;
+import { db } from '../db/client';
+
+const [members, statuses] = await Promise.all([
+  db.query.householdMembers.findMany({ where: (m, { eq }) => eq(m.familyId, familyId), orderBy: (m, { asc }) => asc(m.sortOrder) }),
+  db.query.memberStatuses.findMany({ where: (s, { eq }) => eq(s.familyId, familyId) }),
+]);
+const statusByMember = new Map(statuses.map((s) => [s.memberId, s.status]));
+const options = ['Available', 'Busy', 'On my way home', 'At practice', 'Working late'];
+---
+<section class="rounded-3xl bg-surface p-5 shadow-card sm:p-6" data-availability>
+  <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold"><span aria-hidden="true">📍</span> Availability</h2>
+  {members.length ? <ul class="space-y-2">{members.map((member) => <li class="flex min-w-0 items-center gap-3 rounded-xl bg-surface-2/60 px-3 py-2.5"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={`background-color:${member.color}`}>{member.name.slice(0, 1).toUpperCase()}</span><span class="min-w-0 flex-1 truncate font-medium">{member.name}</span><select class="max-w-[58%] rounded-lg border border-line bg-surface px-2 py-1.5 text-xs" data-member-status={member.id} aria-label={`${member.name} availability`}>{options.map((option) => <option value={option} selected={(statusByMember.get(member.id) ?? 'Available') === option}>{option}</option>)}</select></li>)}</ul> : <p class="text-sm text-fg-muted">Add household members to share availability.</p>}
+</section>
+
+<script>
+  document.querySelectorAll('[data-member-status]').forEach((node) => {
+    const select = node as unknown as HTMLSelectElement;
+    select.addEventListener('change', async () => {
+      const response = await fetch('/api/dashboard/members/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId: select.dataset.memberStatus, status: select.value }) });
+      if (!response.ok) location.reload();
+    });
+  });
+</script>

@@ -73,6 +73,13 @@ const { title, refreshSeconds, theme = 'dark', minimal = false, showControls = t
         updateClock(); setInterval(updateClock, 60_000);
         const activity = () => { root.classList.remove('ambient-saver-active'); clearTimeout(saverTimer); if (!root.hasAttribute('data-minimal')) saverTimer = setTimeout(() => root.classList.add('ambient-saver-active'), 120_000); };
         ['pointerdown', 'keydown', 'touchstart'].forEach((name) => document.addEventListener(name, activity, { passive: true })); activity();
+        // Background tabs may have their meta refresh timer throttled or
+        // suspended. Reload the kiosk dashboard as soon as it is shown again.
+        let wasHidden = document.visibilityState === 'hidden';
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') wasHidden = true;
+          else if (wasHidden && document.querySelector('meta[http-equiv="refresh"]')) location.reload();
+        });
       })();
     </script>
   </body>
@@ -81,6 +88,13 @@ const { title, refreshSeconds, theme = 'dark', minimal = false, showControls = t
 <style is:global>
   .kiosk-mode .dashboard-controls { opacity: 0; pointer-events: none; transition: opacity .25s ease; }
   .kiosk-mode .dashboard-controls:hover, .kiosk-mode .dashboard-controls:focus-within { opacity: 1; pointer-events: auto; }
+  /* The dashboard's own header has an explicit show/hide toggle (see
+     index.astro's wall-header-hidden/wall-reveal-tab), which is the
+     decluttering control there now — the hover-based fade above doesn't
+     mix with it (or with touch, which has no real hover state): revealing
+     the header via the tab would leave its buttons hover-gated and
+     invisible until actually touched again. */
+  .kiosk-mode .wall-header .dashboard-controls { opacity: 1; pointer-events: auto; }
   .ambient-saver { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; gap: 1rem; background: #080a0e; color: #64748b; font-size: clamp(1.5rem, 4vw, 4rem); z-index: 100; }
   .ambient-saver-active .ambient-saver { display: flex; }
   .ambient-saver time { font-variant-numeric: tabular-nums; }

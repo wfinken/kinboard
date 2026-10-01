@@ -12,5 +12,5 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
   if (!SUPPORTED_TIMEZONES.has(timezone)) return new Response('Unsupported time zone', { status: 400 });
   const settings = await getDashboardSettings(locals.familyId);
   await saveDashboardSettings({ ...settings, timezone }, locals.familyId);
-  return redirect('/admin/account');
+  return redirect(String(form.get('returnTo') ?? '/admin/account'));
 };

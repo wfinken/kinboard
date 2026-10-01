@@ -3,8 +3,11 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../../../db/client';
 import { calendars } from '../../../../db/schema';
 import { listGoogleCalendars } from '../../../../lib/google-calendar';
+import { requirePermission } from '../../../../lib/permissions';
 
 export const POST: APIRoute = async ({ locals, redirect }) => {
+  const denied = await requirePermission(locals, 'calendars', 'create');
+  if (denied) return denied;
   const userId = locals.session?.user?.id;
   const familyId = locals.familyId;
   if (!userId || !familyId) return redirect('/admin/login');

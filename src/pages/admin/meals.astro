@@ -5,6 +5,10 @@ import { db } from '../../db/client';
 import { meals } from '../../db/schema';
 import { and, eq, gte } from 'drizzle-orm';
 import { householdTimezone, zonedCalendarDate, dateKeyUTC, parseDateKey } from '../../lib/dates';
+import { getPermissions } from '../../lib/permissions';
+
+const perms = await getPermissions(familyId, Astro.locals.session!.user!.id);
+if (!perms.meals.read) return Astro.redirect('/admin');
 
 const today = zonedCalendarDate(new Date(), householdTimezone());
 const todayKey = dateKeyUTC(today);
@@ -17,6 +21,7 @@ const mealLabels = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' } 
 ---
 
 <AdminLayout title="Meal Planner">
+  {perms.meals.create && (
   <section class="mb-6 rounded-2xl border border-line-subtle bg-surface p-5 shadow-card sm:p-6">
     <div class="mb-4">
       <h2 class="text-base font-semibold">Plan a meal</h2>
@@ -29,6 +34,7 @@ const mealLabels = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' } 
       <button class="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-hover">＋ Add meal</button>
     </form>
   </section>
+  )}
 
   <section>
     <div class="mb-3 flex items-center justify-between">
@@ -44,10 +50,12 @@ const mealLabels = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' } 
           <span class="grid h-9 w-9 place-items-center rounded-xl bg-surface-2 text-lg" aria-hidden="true">{mealIcons[meal.mealType]}</span>
           <span class="w-24 text-xs font-medium text-fg-muted">{mealLabels[meal.mealType]}</span>
           <span class="min-w-[10rem] flex-1 text-sm">{meal.description}</span>
-          <form method="POST" action="/api/admin/meals" class="ml-auto">
-            <input type="hidden" name="deleteId" value={meal.id} />
-            <button class="rounded-lg px-3 py-2 text-xs font-medium text-fg-subtle hover:bg-danger-soft hover:text-danger" aria-label={`Remove ${mealLabels[meal.mealType]} on ${dateLabel}`}>Remove</button>
-          </form>
+          {perms.meals.delete && (
+            <form method="POST" action="/api/admin/meals" class="ml-auto">
+              <input type="hidden" name="deleteId" value={meal.id} />
+              <button class="rounded-lg px-3 py-2 text-xs font-medium text-fg-subtle hover:bg-danger-soft hover:text-danger" aria-label={`Remove ${mealLabels[meal.mealType]} on ${dateLabel}`}>Remove</button>
+            </form>
+          )}
         </li>;
       })}
     </ul> : <div class="rounded-2xl border border-dashed border-line bg-surface px-5 py-10 text-center">

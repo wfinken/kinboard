@@ -3,23 +3,34 @@ import '../styles/global.css';
 import ThemeInit from '../components/ThemeInit.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
 import { getDashboardSettings } from '../lib/settings';
+import { getPermissions, isOwner } from '../lib/permissions';
+import type { PermissionFeature } from '../db/schema';
 
 interface Props { title: string; }
 
 const { title } = Astro.props;
 const session = Astro.locals.session;
 const { theme } = await getDashboardSettings(Astro.locals.familyId);
+
+const familyId = Astro.locals.familyId;
+const userId = session?.user?.id;
+const [permissions, owner] = familyId && userId
+  ? await Promise.all([getPermissions(familyId, userId), isOwner(familyId, userId)])
+  : [null, false];
+const canRead = (feature?: PermissionFeature) => !feature || !permissions || permissions[feature].read;
+
 const navItems = [
   { href: '/admin', label: 'Overview', icon: '⌂' },
-  { href: '/admin/calendars', label: 'Calendars', icon: '▦' },
-  { href: '/admin/meals', label: 'Meals', icon: '◷' },
-  { href: '/admin/notes', label: 'Notes', icon: '▤' },
+  { href: '/admin/calendars', label: 'Calendars', icon: '▦', feature: 'calendars' as PermissionFeature },
+  { href: '/admin/meals', label: 'Meals', icon: '◷', feature: 'meals' as PermissionFeature },
+  { href: '/admin/notes', label: 'Notes', icon: '▤', feature: 'notes' as PermissionFeature },
   { href: '/admin/layout', label: 'Display', icon: '▣' },
-  { href: '/admin/chores', label: 'Chores', icon: '✓' },
-  { href: '/admin/allowance', label: 'Allowance', icon: '$' },
-  { href: '/admin/family', label: 'Family', icon: '♧' },
+  { href: '/admin/chores', label: 'Chores', icon: '✓', feature: 'chores' as PermissionFeature },
+  { href: '/admin/allowance', label: 'Allowance', icon: '$', feature: 'allowance' as PermissionFeature },
+  { href: '/admin/family', label: 'Family', icon: '♧', feature: 'family' as PermissionFeature },
+  ...(owner ? [{ href: '/admin/permissions', label: 'Permissions', icon: '⚿' }] : []),
   { href: '/admin/account', label: 'Account', icon: '◎' },
-];
+].filter((item) => canRead('feature' in item ? item.feature : undefined));
 const currentPath = Astro.url.pathname;
 ---
 
@@ -38,6 +49,7 @@ const currentPath = Astro.url.pathname;
     <div class="admin-shell">
       <aside class="admin-sidebar" id="admin-sidebar" aria-label="Admin navigation">
         <a href="/admin" class="admin-brand"><span class="admin-brand-mark">K.</span><span><strong>KinBoard</strong><small>FAMILY ADMIN</small></span></a>
+        <a href="/" class="admin-family-display-button"><span aria-hidden="true">↗</span> Open family display</a>
         <p class="admin-nav-label">HOUSEHOLD</p>
         <nav aria-label="Admin settings" class="admin-nav">
           {navItems.map((item) => {
@@ -46,8 +58,6 @@ const currentPath = Astro.url.pathname;
           })}
         </nav>
         <div class="admin-sidebar-bottom">
-          <p class="admin-nav-label">FAMILY</p>
-          <a href="/" class="admin-nav-link"><span class="admin-nav-icon" aria-hidden="true">↗</span>Family display</a>
           {session?.user && <p class="admin-user-email" title={session.user.email ?? ''}>{session.user.email}</p>}
           <a href="/api/auth/signout" class="admin-signout">Sign out <span aria-hidden="true">↗</span></a>
         </div>
@@ -60,7 +70,7 @@ const currentPath = Astro.url.pathname;
           <div class="admin-top-actions"><span class="admin-avatar" aria-hidden="true">{(session?.user?.name || session?.user?.email || 'K').slice(0, 1).toUpperCase()}</span><ThemeToggle /><a href="/api/auth/signout" class="admin-signout">Sign out</a></div>
         </header>
         <main class="admin-main">
-          <div class="admin-page-heading"><div><p class="admin-eyebrow">KINBOARD <span aria-hidden="true">/</span> HOUSEHOLD</p><h1>{title}</h1></div><a href="/" class="admin-dashboard-link"><span>Open family display</span><b aria-hidden="true">↗</b></a></div>
+          <div class="admin-page-heading"><div><p class="admin-eyebrow">KINBOARD <span aria-hidden="true">/</span> HOUSEHOLD</p><h1>{title}</h1></div><a href="/" class="admin-dashboard-link"><span>Open dashboard</span><b aria-hidden="true">↗</b></a></div>
           <slot />
         </main>
       </div>
