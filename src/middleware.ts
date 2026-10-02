@@ -5,6 +5,18 @@ import { getFamilyContext, ensureHouseholdMemberForUser } from './lib/household'
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
 
+  // Invite short links use the token as the sole subdomain label. Redirect
+  // them to the canonical app host so sign-in cookies remain first-party.
+  const hostname = context.url.hostname.toLowerCase();
+  const inviteHostSuffix = '.invite.kinboard.xyz';
+  if (hostname.endsWith(inviteHostSuffix)) {
+    const token = hostname.slice(0, -inviteHostSuffix.length);
+    if (/^[A-Za-z0-9]{10}$/.test(token)) {
+      const destination = new URL(`/join/${encodeURIComponent(token)}${context.url.search}`, 'https://app.kinboard.xyz');
+      return context.redirect(destination.toString(), 302);
+    }
+  }
+
   const isLoginRoute = pathname === '/login' || pathname === '/admin/login';
   const isAuthRoute = pathname.startsWith('/api/auth');
   const isFamilySetup = pathname === '/welcome' || pathname === '/api/family/create' || pathname === '/api/family/join';

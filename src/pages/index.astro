@@ -8,6 +8,7 @@ import MealPlanWidget from '../components/MealPlanWidget.astro';
 import StickyNotes from '../components/StickyNotes.astro';
 import AllowanceWidget from '../components/AllowanceWidget.astro';
 import AvailabilityWidget from '../components/AvailabilityWidget.astro';
+import LatestWidget from '../components/LatestWidget.astro';
 import { getDashboardSettings, getUserDashboardLayout, WIDGET_LABELS } from '../lib/settings';
 import { getPermissions } from '../lib/permissions';
 import { randomFooterMessage, randomHeartColor } from '../lib/footer-messages';
@@ -30,6 +31,7 @@ const perms = await getPermissions(familyId, Astro.locals.session!.user!.id);
 const WIDGET_COMPONENTS: Record<DashboardWidgetId, (_props: any) => unknown> = {
   clock: ClockWidget,
   weather: WeatherWidget,
+  latest: LatestWidget,
   calendar: CalendarWidget,
   meals: MealPlanWidget,
   chores: TaskList,
@@ -55,7 +57,7 @@ const visibleWidgetOrder = personalLayout.widgetOrder.filter((id) => settings.wi
   return !feature || perms[feature].read;
 });
 const enabled = new Set(visibleWidgetOrder);
-const orderedWidgets = visibleWidgetOrder.filter((id) => id !== 'clock' && id !== 'weather');
+const orderedWidgets = visibleWidgetOrder.filter((id) => id !== 'clock' && id !== 'weather' && id !== 'latest');
 const widgetSizes = personalLayout.widgetSizes;
 ---
 
@@ -82,9 +84,10 @@ const widgetSizes = personalLayout.widgetSizes;
     </section>
     <button type="button" data-show-header class="wall-reveal-tab" aria-label="Show the top bar"><Icon name="chevron-down" /></button>
 
-    <section class="wall-hero-row" aria-label="Time and weather">
+    <section class="wall-hero-row" aria-label="Time, weather, and latest activity">
       {enabled.has('clock') && <div class="wall-clock-card"><div class="wall-card-kicker"><span class="wall-status-dot"></span> RIGHT NOW</div><ClockWidget /></div>}
       {enabled.has('weather') && <div class="wall-weather-card"><div class="wall-card-kicker">⛅ WEATHER NEAR HOME</div><WeatherWidget /></div>}
+      {enabled.has('latest') && <div class="wall-latest-card" data-hero-widget="latest" data-size={widgetSizes.latest ?? '2x1'}><div class="hero-widget-customize-tools" aria-label="Latest layout controls"><strong>Latest</strong><label>Size <select data-hero-widget-size="latest" aria-label="Latest size"><option value="1x1" selected={(widgetSizes.latest ?? '2x1') === '1x1'}>Small · Single</option><option value="2x1" selected={(widgetSizes.latest ?? '2x1') === '2x1'}>Medium · Single</option><option value="3x1" selected={widgetSizes.latest === '3x1'}>Large · Single</option><option value="1x2" selected={widgetSizes.latest === '1x2'}>Small · Double</option><option value="2x2" selected={widgetSizes.latest === '2x2'}>Medium · Double</option></select></label></div><LatestWidget /></div>}
     </section>
 
     <div class="wall-widget-grid" data-widget-grid>
@@ -95,9 +98,11 @@ const widgetSizes = personalLayout.widgetSizes;
             <span class="widget-drag-handle" aria-hidden="true">⠿</span>
             <strong>{WIDGET_LABELS[id]}</strong>
             <label>Size <select data-widget-size={id} aria-label={`${WIDGET_LABELS[id]} size`}>
-              <option value="1x1" selected={(widgetSizes[id] ?? '1x1') === '1x1'}>Small</option>
-              <option value="2x1" selected={widgetSizes[id] === '2x1'}>Wide</option>
-              <option value="2x2" selected={widgetSizes[id] === '2x2'}>Large</option>
+              <option value="1x1" selected={(widgetSizes[id] ?? '1x1') === '1x1'}>Small · Single</option>
+              <option value="2x1" selected={widgetSizes[id] === '2x1'}>Medium · Single</option>
+              <option value="3x1" selected={widgetSizes[id] === '3x1'}>Large · Single</option>
+              <option value="1x2" selected={widgetSizes[id] === '1x2'}>Small · Double</option>
+              <option value="2x2" selected={widgetSizes[id] === '2x2'}>Medium · Double</option>
             </select></label>
             <button type="button" data-move-widget="up" aria-label={`Move ${WIDGET_LABELS[id]} earlier`}>↑</button>
             <button type="button" data-move-widget="down" aria-label={`Move ${WIDGET_LABELS[id]} later`}>↓</button>
@@ -130,6 +135,10 @@ const widgetSizes = personalLayout.widgetSizes;
     const widgets = widgetList();
     const widgetOrder = widgets.map((widget) => widget.dataset.widget).filter(Boolean);
     const widgetSizes = Object.fromEntries(widgets.map((widget) => [widget.dataset.widget, widget.dataset.size ?? '1x1']));
+    document.querySelectorAll<HTMLElement>('[data-hero-widget]').forEach((widget) => {
+      const id = widget.dataset.heroWidget;
+      if (id) widgetSizes[id] = widget.dataset.size ?? '2x1';
+    });
     try {
       const response = await fetch('/api/dashboard/layout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -143,6 +152,13 @@ const widgetSizes = personalLayout.widgetSizes;
   document.querySelectorAll<HTMLSelectElement & Element>('[data-widget-size]').forEach((select) => {
     select.addEventListener('change', () => {
       const widget = select.closest<HTMLElement>('[data-widget]');
+      if (widget) widget.dataset.size = select.value;
+      void saveLayout();
+    });
+  });
+  document.querySelectorAll<HTMLSelectElement & Element>('[data-hero-widget-size]').forEach((select) => {
+    select.addEventListener('change', () => {
+      const widget = select.closest<HTMLElement>('[data-hero-widget]');
       if (widget) widget.dataset.size = select.value;
       void saveLayout();
     });

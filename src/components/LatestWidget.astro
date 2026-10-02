@@ -1,0 +1,54 @@
+---
+import { desc, eq } from 'drizzle-orm';
+import { db } from '../db/client';
+import { calendarEvents, choreCompletions, chores, meals, stickyNotes } from '../db/schema';
+
+const familyId = Astro.locals.familyId!;
+const [events, completions, notes, mealItems, choreItems] = await Promise.all([
+  db.query.calendarEvents.findMany({ where: eq(calendarEvents.familyId, familyId), orderBy: desc(calendarEvents.start), limit: 8 }),
+  db.query.choreCompletions.findMany({ where: eq(choreCompletions.familyId, familyId), orderBy: desc(choreCompletions.completedAt), limit: 8 }),
+  db.query.stickyNotes.findMany({ where: eq(stickyNotes.familyId, familyId), orderBy: desc(stickyNotes.createdAt), limit: 8 }),
+  db.query.meals.findMany({ where: eq(meals.familyId, familyId), orderBy: desc(meals.date), limit: 8 }),
+  db.query.chores.findMany({ where: eq(chores.familyId, familyId), orderBy: desc(chores.id), limit: 8 }),
+]);
+const memberIds = [...new Set(completions.map((item) => item.memberId).filter((id): id is string => Boolean(id)))];
+const members = memberIds.length ? await db.query.householdMembers.findMany({ where: (member, { inArray }) => inArray(member.id, memberIds) }) : [];
+const choreIds = [...new Set(completions.map((item) => item.choreId))];
+const completedChores = choreIds.length ? await db.query.chores.findMany({ where: (chore, { and, eq, inArray }) => and(eq(chore.familyId, familyId), inArray(chore.id, choreIds)) }) : [];
+const cards = [
+  ...events.map((item) => ({ at: new Date(item.start), kind: 'Calendar', title: item.title, detail: 'Upcoming family event', icon: '📅' })),
+  ...completions.map((item) => ({ at: item.completedAt, kind: 'Chore completed', title: completedChores.find((chore) => chore.id === item.choreId)?.title ?? 'Chore', detail: members.find((member) => member.id === item.memberId)?.name ?? 'Family member', icon: '✅' })),
+  ...notes.map((item) => ({ at: item.createdAt, kind: 'Fridge note', title: item.content, detail: item.authorName || 'Added to the family board', icon: '📌' })),
+  ...mealItems.map((item) => ({ at: new Date(`${item.date}T12:00:00`), kind: 'Meal plan', title: item.description, detail: `${item.mealType} · ${item.date}`, icon: '🍽️' })),
+  ...choreItems.map((item) => ({ at: new Date(), kind: 'Chore', title: item.title, detail: 'On the family chore list', icon: '🧹' })),
+].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, 12);
+const formatDate = (date: Date) => Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
+---
+
+<section class="latest-widget" data-latest-widget aria-label="Latest family activity">
+  <header class="latest-heading"><div><span class="latest-pulse"></span><span class="latest-eyebrow">FAMILY ACTIVITY</span></div><div class="latest-controls"><button type="button" data-latest-prev aria-label="Previous latest item">←</button><span data-latest-count>0 / 0</span><button type="button" data-latest-next aria-label="Next latest item">→</button></div></header>
+  {cards.length ? <div class="latest-track" data-latest-track>
+    {cards.map((card, index) => <article class="latest-card" data-latest-card hidden={index !== 0}>
+      <div class="latest-card-icon" aria-hidden="true">{card.icon}</div>
+      <div class="latest-card-copy"><span class="latest-card-kind">{card.kind}</span><strong>{card.title}</strong><span class="latest-card-detail">{card.detail}</span><time class="latest-card-time">{formatDate(card.at)}</time></div>
+    </article>)}
+  </div> : <p class="latest-empty">New family activity will show up here.</p>}
+</section>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-latest-widget]').forEach((widget) => {
+    const cards = Array.from(widget.querySelectorAll<HTMLElement>('[data-latest-card]'));
+    if (!cards.length) return;
+    let index = 0;
+    const count = widget.querySelector<HTMLElement>('[data-latest-count]');
+    const show = (next: number) => {
+      index = (next + cards.length) % cards.length;
+      cards.forEach((card, cardIndex) => { card.hidden = cardIndex !== index; });
+      if (count) count.textContent = `${index + 1} / ${cards.length}`;
+    };
+    widget.querySelector('[data-latest-prev]')?.addEventListener('click', () => show(index - 1));
+    widget.querySelector('[data-latest-next]')?.addEventListener('click', () => show(index + 1));
+    show(0);
+    if (cards.length > 1) window.setInterval(() => show(index + 1), 7000);
+  });
+</script>

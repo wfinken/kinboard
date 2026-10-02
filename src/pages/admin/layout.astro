@@ -76,9 +76,11 @@ const enabledSet = new Set(settings.widgetOrder);
               <span>{WIDGET_LABELS[id]}</span>
               <label class="ml-auto flex items-center gap-2 text-sm text-fg-muted">Tile size
                 <select name={`size_${id}`} class="rounded-lg border border-line bg-surface px-2 py-1.5">
-                  <option value="1x1" selected={(settings.widgetSizes[id] ?? '1x1') === '1x1'}>1 × 1</option>
-                  <option value="2x1" selected={settings.widgetSizes[id] === '2x1'}>2 × 1</option>
-                  <option value="2x2" selected={settings.widgetSizes[id] === '2x2'}>2 × 2</option>
+                  <option value="1x1" selected={(settings.widgetSizes[id] ?? '1x1') === '1x1'}>Small · Single</option>
+                  <option value="2x1" selected={settings.widgetSizes[id] === '2x1'}>Medium · Single</option>
+                  <option value="3x1" selected={settings.widgetSizes[id] === '3x1'}>Large · Single</option>
+                  <option value="1x2" selected={settings.widgetSizes[id] === '1x2'}>Small · Double</option>
+                  <option value="2x2" selected={settings.widgetSizes[id] === '2x2'}>Medium · Double</option>
                 </select>
               </label>
             </li>

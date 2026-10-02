@@ -245,8 +245,10 @@ export const stickyNotes = sqliteTable('sticky_note', {
     .$defaultFn(() => new Date()),
 });
 
-export const DASHBOARD_WIDGETS = ['clock', 'weather', 'calendar', 'meals', 'chores', 'availability', 'allowance', 'notes'] as const;
+export const DASHBOARD_WIDGETS = ['clock', 'weather', 'latest', 'calendar', 'meals', 'chores', 'availability', 'allowance', 'notes'] as const;
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGETS)[number];
+export const DASHBOARD_WIDGET_SIZES = ['1x1', '2x1', '3x1', '1x2', '2x2'] as const;
+export type DashboardWidgetSize = (typeof DASHBOARD_WIDGET_SIZES)[number];
 
 // Single-household settings singleton (id is always 'default'). Multi-household
 // support in Phase 3 will key this by household id instead.
@@ -257,14 +259,14 @@ export const dashboardSettings = sqliteTable('dashboard_settings', {
   widgetOrder: text('widget_order', { mode: 'json' })
     .notNull()
     .$type<DashboardWidgetId[]>()
-    .default(sql`'["clock","weather","calendar","meals","chores","availability","notes"]'`),
+    .default(sql`'["clock","weather","latest","calendar","meals","chores","availability","notes"]'`),
   refreshSeconds: integer('refresh_seconds').notNull().default(300),
   theme: text('theme', { enum: ['light', 'dark'] }).notNull().default('dark'),
   timezone: text('timezone').notNull().default('auto'),
   widgetSizes: text('widget_sizes', { mode: 'json' })
     .notNull()
-    .$type<Partial<Record<DashboardWidgetId, '1x1' | '2x1' | '2x2'>>>()
-    .default(sql`'{"clock":"1x1","weather":"2x1","calendar":"2x2","meals":"1x1","chores":"2x1","availability":"1x1","allowance":"1x1","notes":"1x1"}'`),
+    .$type<Partial<Record<DashboardWidgetId, DashboardWidgetSize>>>()
+    .default(sql`'{"clock":"1x1","weather":"2x1","latest":"2x1","calendar":"2x2","meals":"1x1","chores":"2x1","availability":"1x1","allowance":"1x1","notes":"1x1"}'`),
   defaultEventCalendarId: text('default_event_calendar_id').notNull().default('local'),
 });
 
@@ -274,5 +276,5 @@ export const userDashboardLayouts = sqliteTable('user_dashboard_layout', {
   userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   familyId: text('family_id').notNull().references(() => families.id, { onDelete: 'cascade' }),
   widgetOrder: text('widget_order', { mode: 'json' }).notNull().$type<DashboardWidgetId[]>(),
-  widgetSizes: text('widget_sizes', { mode: 'json' }).notNull().$type<Partial<Record<DashboardWidgetId, '1x1' | '2x1' | '2x2'>>>(),
+  widgetSizes: text('widget_sizes', { mode: 'json' }).notNull().$type<Partial<Record<DashboardWidgetId, DashboardWidgetSize>>>(),
 }, (layout) => [primaryKey({ columns: [layout.userId, layout.familyId] })]);

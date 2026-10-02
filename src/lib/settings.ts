@@ -1,10 +1,11 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { dashboardSettings, userDashboardLayouts, DASHBOARD_WIDGETS, type DashboardWidgetId } from '../db/schema';
+import { dashboardSettings, userDashboardLayouts, DASHBOARD_WIDGETS, type DashboardWidgetId, type DashboardWidgetSize } from '../db/schema';
 
 export const WIDGET_LABELS: Record<DashboardWidgetId, string> = {
   clock: 'Clock',
   weather: 'Weather',
+  latest: 'Latest',
   calendar: 'Calendar',
   meals: 'Meal Plan',
   chores: 'Chores',
@@ -20,7 +21,7 @@ export interface DashboardSettings {
   refreshSeconds: number;
   theme: DashboardTheme;
   timezone: string;
-  widgetSizes: Partial<Record<DashboardWidgetId, '1x1' | '2x1' | '2x2'>>;
+  widgetSizes: Partial<Record<DashboardWidgetId, DashboardWidgetSize>>;
   defaultEventCalendarId: string;
 }
 
@@ -29,7 +30,7 @@ const DEFAULTS: DashboardSettings = {
   refreshSeconds: 300,
   theme: 'dark',
   timezone: 'auto',
-  widgetSizes: { clock: '1x1', weather: '2x1', calendar: '2x2', meals: '1x1', chores: '2x1', availability: '1x1', allowance: '1x1', notes: '1x1' },
+  widgetSizes: { clock: '1x1', weather: '2x1', latest: '2x1', calendar: '2x2', meals: '1x1', chores: '2x1', availability: '1x1', allowance: '1x1', notes: '1x1' },
   defaultEventCalendarId: 'local',
 };
 

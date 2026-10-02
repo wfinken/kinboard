@@ -1,8 +1,6 @@
 import type { APIRoute } from 'astro';
-import { DASHBOARD_WIDGETS, type DashboardWidgetId } from '../../../db/schema';
+import { DASHBOARD_WIDGETS, DASHBOARD_WIDGET_SIZES, type DashboardWidgetId, type DashboardWidgetSize } from '../../../db/schema';
 import { getDashboardSettings, getUserDashboardLayout, saveUserDashboardLayout } from '../../../lib/settings';
-
-const SIZES = ['1x1', '2x1', '2x2'] as const;
 
 export const POST: APIRoute = async ({ request, locals }) => {
   const userId = locals.session?.user?.id;
@@ -26,7 +24,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const widgetSizes = { ...current.widgetSizes };
   for (const id of DASHBOARD_WIDGETS) {
     const value = rawSizes[id];
-    if (typeof value === 'string' && (SIZES as readonly string[]).includes(value)) widgetSizes[id] = value as typeof SIZES[number];
+    if (typeof value === 'string' && (DASHBOARD_WIDGET_SIZES as readonly string[]).includes(value)) widgetSizes[id] = value as DashboardWidgetSize;
   }
 
   await saveUserDashboardLayout(userId, familyId, widgetOrder, widgetSizes);

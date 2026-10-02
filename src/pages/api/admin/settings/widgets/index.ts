@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { saveDashboardSettings } from '../../../../../lib/settings';
-import { DASHBOARD_WIDGETS, type DashboardWidgetId } from '../../../../../db/schema';
+import { DASHBOARD_WIDGETS, DASHBOARD_WIDGET_SIZES, type DashboardWidgetId, type DashboardWidgetSize } from '../../../../../db/schema';
 
 export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const form = await request.formData();
@@ -22,7 +22,7 @@ export const POST: APIRoute = async ({ request, redirect, locals }) => {
   const widgetSizes = { ...current.widgetSizes };
   for (const id of DASHBOARD_WIDGETS) {
     const size = form.get(`size_${id}`);
-    if (size === '1x1' || size === '2x1' || size === '2x2') widgetSizes[id] = size;
+    if (typeof size === 'string' && (DASHBOARD_WIDGET_SIZES as readonly string[]).includes(size)) widgetSizes[id] = size as DashboardWidgetSize;
   }
 
   const mergedOrder = [...widgetOrder, ...current.widgetOrder.filter((id) => !widgetOrder.includes(id))];
