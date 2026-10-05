@@ -28,6 +28,11 @@ const appMiddleware = defineMiddleware(async (context, next) => {
     return addCors(new Response(null, { status: 204 }), origin);
   }
   if (pathname === '/admin/login') return context.redirect('/login?callbackUrl=%2Fadmin%2F');
+  if (pathname === '/admin/calendar' || pathname === '/admin/calendar/') {
+    const destination = new URL(context.url);
+    destination.pathname = '/admin/calendars/';
+    return context.redirect(destination.toString(), 307);
+  }
   // The static shell contains no private data. Every data request authenticates.
   if (pathname === '/app' || pathname.startsWith('/app/') || pathname === '/admin' || pathname.startsWith('/admin/')) return next();
   if (jsonApi && !['GET', 'HEAD'].includes(context.request.method)) {

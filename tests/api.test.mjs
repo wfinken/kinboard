@@ -113,6 +113,12 @@ test('every admin URL serves the static web shell, with no private page data', a
     assert.match(html, /id="app"/); assert.doesNotMatch(html, /alex@example|Hello family/);
   }
 });
+test('legacy singular calendar URL redirects to the web calendar admin page', async () => {
+  const response = await request('/admin/calendar?view=month', { session: null });
+  assert.equal(response.status, 307);
+  const location = new URL(response.headers.get('location'));
+  assert.equal(`${location.pathname}${location.search}`, '/admin/calendars/?view=month');
+});
 test('all admin read endpoints return typed data and no provider secrets', async () => {
   for (const section of ['overview', 'calendars', 'meals', 'notes', 'layout', 'chores', 'allowance', 'family', 'permissions', 'account']) {
     const response = await request(`/api/v1/admin/${section}`);
