@@ -2,7 +2,7 @@
 set -e
 
 echo "Applying database migrations..."
-node --experimental-strip-types ./src/db/migrate.ts
+node --experimental-strip-types ./apps/api/src/db/migrate.ts
 
 echo "Starting KinBoard..."
-exec node ./dist/server/entry.mjs
+exec node ./apps/api/dist/server/entry.mjs

@@ -1,0 +1,44 @@
+import type { APIRoute } from 'astro';
+import { and, eq } from 'drizzle-orm';
+import { db } from '../../../../db/client';
+import { meals } from '../../../../db/schema';
+import { requirePermission } from '../../../../lib/permissions';
+
+const VALID_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const VALID_TYPES = new Set(['breakfast', 'lunch', 'dinner']);
+
+export const POST: APIRoute = async ({ request, redirect, locals }) => {
+  const form = await request.formData();
+  const familyId = locals.familyId!;
+  const deleteId = form.get('deleteId');
+
+  if (typeof deleteId === 'string' && deleteId) {
+    const denied = await requirePermission(locals, 'meals', 'delete');
+    if (denied) return denied;
+    await db.delete(meals).where(and(eq(meals.id, deleteId), eq(meals.familyId, familyId)));
+    return redirect('/admin/meals');
+  }
+
+  const date = String(form.get('date') ?? '');
+  const mealType = String(form.get('mealType') ?? '');
+  const description = String(form.get('description') ?? '').trim();
+  if (!VALID_DATE.test(date) || !VALID_TYPES.has(mealType) || !description || description.length > 240) {
+    return new Response('Enter a date, meal type, and description of 1–240 characters.', { status: 400 });
+  }
+
+  const normalizedType = mealType as 'breakfast' | 'lunch' | 'dinner';
+  const existing = await db.query.meals.findFirst({
+    where: and(eq(meals.familyId, familyId), eq(meals.date, date), eq(meals.mealType, normalizedType)),
+  });
+
+  const denied = await requirePermission(locals, 'meals', existing ? 'update' : 'create');
+  if (denied) return denied;
+
+  if (existing) {
+    await db.update(meals).set({ description }).where(and(eq(meals.id, existing.id), eq(meals.familyId, familyId)));
+  } else {
+    await db.insert(meals).values({ familyId, date, mealType: normalizedType, description });
+  }
+
+  return redirect('/admin/meals');
+};

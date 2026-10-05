@@ -1,0 +1,46 @@
+{
+  "name": "@kinboard/api",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "cf:types": "wrangler types",
+    "check:cloudflare": "npm run cf:types && astro check --tsconfig tsconfig.cloudflare.json",
+    "cf:dev": "astro dev --config astro.config.cloudflare.mjs",
+    "build:cloudflare": "npm run check:cloudflare && astro build --config astro.config.cloudflare.mjs",
+    "check:cloudflare:api": "wrangler types --config wrangler.api.jsonc && KINBOARD_WRANGLER_CONFIG=./wrangler.api.jsonc astro check --tsconfig tsconfig.cloudflare.json",
+    "build:cloudflare:api": "npm run check:cloudflare:api && KINBOARD_WRANGLER_CONFIG=./wrangler.api.jsonc astro build --config astro.config.cloudflare.mjs",
+    "cf:deploy": "npm run build:cloudflare && wrangler deploy dist/server/entry.mjs --assets dist/client --name kinboard --no-bundle",
+    "cf:deploy:api": "npm run build:cloudflare:api && wrangler deploy dist/server/entry.mjs --assets dist/client --config wrangler.api.jsonc --name kinboard-api --no-bundle",
+    "cf:db:create": "wrangler d1 create kinboard",
+    "cf:db:migrate:local": "wrangler d1 migrations apply kinboard --local",
+    "cf:db:migrate:remote": "wrangler d1 migrations apply kinboard --remote"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@astrojs/cloudflare": "^14.3.3",
+    "@astrojs/node": "^11.1.6",
+    "@auth/core": "^0.41.3",
+    "@auth/drizzle-adapter": "^1.11.3",
+    "@libsql/client": "^0.18.0",
+    "astro": "^7.3.5",
+    "dotenv": "^18.0.3",
+    "drizzle-orm": "^0.45.3",
+    "@kinboard/contracts": "*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260924.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "drizzle-kit": "^0.31.11",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.139.0"
+  }
+}

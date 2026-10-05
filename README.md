@@ -1,229 +1,94 @@
 # KinBoard
 
-A self-hosted, low-resource family dashboard — a software alternative to
-proprietary wall-mounted displays (Skylight, Echo Show). Built to run
-comfortably on old tablets and smart TV browsers.
+A family dashboard with an Astro API, a lightweight web client, and room for native Swift and Kotlin apps. This repository uses npm workspaces and one lockfile.
 
-See [PRD.md](./PRD.md) for the full product spec and roadmap.
+| Workspace | Responsibility |
+| --- | --- |
+| `apps/api` | Astro API, Auth.js Google login, authorization, Drizzle, D1/SQLite, and existing wall/login routes |
+| `apps/web` | Static Vite + TypeScript web app; no UI framework, database access, or secrets |
+| `packages/contracts` | Transport types, typed web client, and [OpenAPI contract](packages/contracts/openapi.json) |
+| `apps/ios`, `apps/android` | Documented homes for future native projects; no native apps implemented yet |
 
-## Stack
+## Run locally
 
-- **Astro** (SSR) — the public kiosk dashboard ships close to zero client JS;
-  the only islands are the live clock and the chore checkboxes.
-- **Auth.js core** (`@auth/core`) — Google OAuth, wired directly rather than
-  through the `auth-astro` community package, which is pinned to an
-  `@auth/core` release with known CVEs (including an OAuth state/nonce/PKCE
-  binding issue). See `src/lib/auth.ts` and `src/pages/api/auth/[...auth].ts`.
-- **Drizzle ORM** over SQLite — `src/db/schema.ts`.
-- **Tailwind CSS v4** (via `@tailwindcss/vite`, no separate config file).
+Use Node 22.12+ and npm. All commands below run from the repository root.
 
-KinBoard builds for two deployment targets from the same codebase:
-
-| | Self-hosted (Docker/Node) | Cloudflare Workers |
-|---|---|---|
-| Astro adapter | `@astrojs/node` (`astro.config.mjs`) | `@astrojs/cloudflare` (`astro.config.cloudflare.mjs`) |
-| Database | SQLite file via `@libsql/client` | Cloudflare D1 |
-| Migrations | `drizzle-kit migrate` / `docker-entrypoint.sh` | `wrangler d1 migrations apply` |
-| Secrets | `.env` | `wrangler secret put` / `wrangler.jsonc` `vars` |
-
-Every `db/client` import is a plain relative import (`'../db/client'`); a Vite
-alias in `astro.config.cloudflare.mjs` swaps it for `src/db/client.cloudflare.ts`
-(D1) at build time, so none of the ~20 files that read/write the database
-needed to change — see the note at the top of that file for why capturing the
-D1 binding as a module-level singleton is safe under Workers.
-
-## Local development
-
-```bash
-cp .env.example .env      # fill in AUTH_SECRET at minimum to run locally
-npm install
-npm run db:migrate        # applies drizzle/*.sql to ./data/kinboard.db
+```sh
+npm ci
+cp apps/api/.env.example apps/api/.env
+# Fill in AUTH_SECRET and Google OAuth credentials.
+npm run db:migrate
 npm run dev
 ```
 
-Generate `AUTH_SECRET` with `openssl rand -base64 33`.
+Open `http://localhost:4321/app/` for the new API-driven app, `/` for the existing wall dashboard, or `/admin` for all management features. Sign-in is required to access family data. The static `/app/` shell contains no private information.
 
-The dashboard at `/` works immediately with no login. `/admin` requires
-Google sign-in — without `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` set, the
-sign-in button will redirect to Google with an empty client id and fail,
-which is expected until you add real credentials (see below).
+`npm run dev` builds and stages the web app before starting Astro. For frontend hot reload, keep Astro running and start `npm run dev:web` in another terminal; open `http://localhost:5173/app/`. Its `/api` requests proxy to Astro; login, setup, and admin pages redirect to port 4321 so OAuth stays on its registered origin. After signing in, return to port 5173 (localhost cookies are shared across ports). Register `http://localhost:4321/api/auth/callback/google` in Google Cloud.
 
-## Google OAuth setup
+Database defaults to `apps/api/data/kinboard.db`. Existing `.env`, `.dev.vars`, local data, and `.wrangler` state were moved with the API during conversion. Existing absolute `DATABASE_URL` values remain valid. Local relative database URLs resolve from `apps/api`.
 
-1. In [Google Cloud Console](https://console.cloud.google.com), create a
-   project and enable the **Google Calendar API**.
-2. Under *APIs & Services → Credentials*, create an **OAuth 2.0 Client ID**
-   (Web application).
-3. Add an authorized redirect URI:
-   `http(s)://<your-domain>/api/auth/callback/google`
-4. Put the client ID/secret in `.env`.
+## Build and verify
 
-Phase 1 is single-household self-hosting: whichever Google account signs in
-first becomes the household's calendar owner (see
-`src/lib/household.ts`). Multi-household support is a Phase 3 SaaS concern.
+```sh
+npm run check
+npm run build            # web assets + Astro Node server
+npm test                 # integration tests against that built Node server, isolated temporary SQLite
+npm run build:cloudflare # web assets + Astro Cloudflare server (replaces apps/api/dist)
+```
 
-## Architecture notes
+The tests seed two separate families and verify authentication, permissions, tenant isolation, input validation, note creation/deletion, chore completion, and static asset delivery. Rebuild with `npm run build` before testing if the last build used Cloudflare.
 
-- **Public dashboard (`/`)** is unauthenticated by design — it's meant to be
-  glanced at from a shared living-room screen, and the auto-refresh is a
-  plain `<meta http-equiv="refresh">` tag so it works even on very old smart
-  TV browsers with no JS. Chore checkboxes are the one interactive bit,
-  posting to `/api/dashboard/chores/:id/toggle`, also unauthenticated —
-  intended for use only within the trusted home network.
-- **Admin routes (`/admin/*`, `/api/admin/*`)** require the household Google
-  session (enforced in `src/middleware.ts`) and manage calendars, chores,
-  meals, notes, and household members. Admin forms are plain HTML `<form>`
-  POSTs with server-side redirects, so they work without JS too.
-- **Chore "reset"** isn't a cron job — completions are keyed by the current
-  day (`YYYY-MM-DD`) or ISO week (`YYYY-Www`), so a new period simply has no
-  completion row yet. See `src/lib/chores.ts`.
+## Cloudflare
 
-## Docker deployment
+Production uses an app Worker (`kinboard`, serving `app.kinboard.xyz`) and an API Worker (`kinboard-api`, serving `api.kinboard.xyz`) over the same D1 database. Astro continues to own Google login, sessions, authorization, and API routes. The static Vite web and admin bundles are staged under `/app/` and `/admin/` on the app Worker. The web client sends versioned `/api/v1` requests to the API domain with credentials; the API allows only the app origin. Auth.js sets its session cookie for `kinboard.xyz` so both subdomains can validate the same server-side session. Login and legacy admin form writes remain on the app origin. The Astro adapter also supplies its default SESSION KV and IMAGES bindings.
 
-```bash
-cp .env.example .env   # fill in AUTH_SECRET, GOOGLE_CLIENT_ID/SECRET, location
+Configuration lives in `apps/api/wrangler.jsonc`; `apps/api/wrangler.api.jsonc` describes the API Worker and its custom domain. Both bind the existing D1 database ID. The API custom domain requires `api.kinboard.xyz` to be active in the same Cloudflare zone. Local builds do not change remote resources or data. See [Cloudflare Static Assets](https://developers.cloudflare.com/workers/static-assets/) and the [Astro guide](https://developers.cloudflare.com/workers/framework-guides/web-apps/astro/).
+
+```sh
+cp apps/api/.dev.vars.example apps/api/.dev.vars
+# Fill in local secrets.
+npm run cf:db:migrate:local
+npm run cf:dev
+```
+
+Deployment, when desired:
+
+```sh
+npm exec --workspace @kinboard/api -- wrangler login
+# Set secrets on the intended Worker, if not already configured:
+npm exec --workspace @kinboard/api -- wrangler secret put AUTH_SECRET
+npm exec --workspace @kinboard/api -- wrangler secret put GOOGLE_CLIENT_ID
+npm exec --workspace @kinboard/api -- wrangler secret put GOOGLE_CLIENT_SECRET
+npm run cf:db:migrate:remote
+npm run cf:deploy
+npm run cf:deploy:api
+```
+
+Set the same `AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` secrets on both Workers. Register `https://app.kinboard.xyz/api/auth/callback/google` as the Google OAuth redirect URI. `npm run build:cloudflare:api` builds the web bundle with `https://api.kinboard.xyz` as its API base; ordinary local/dev builds continue to use the same-origin proxy. Deploy both Workers after the app domain, API custom domain, and Google redirect are configured.
+
+Only use `npm run cf:db:create` when provisioning a new deployment, then replace its database ID in `apps/api/wrangler.jsonc`. Existing deployments keep their current database. Google OAuth's authorized redirect remains `https://<your-domain>/api/auth/callback/google`.
+
+D1 migrations remain under `apps/api/drizzle`. No schema migration is required for the monorepo conversion. The existing migration history includes hand-written SQL without complete Drizzle snapshots; inspect generated SQL before applying schema changes.
+
+## API and native roadmap
+
+The initial `/api/v1` contract provides:
+
+- `GET /api/v1/dashboard`: viewer, family, permissions, settings, members, chores, meals, notes, and upcoming events.
+- `POST /api/v1/notes`: create a text note.
+- `DELETE /api/v1/notes/{id}`: remove a note within your family.
+- `PUT /api/v1/chores/{id}/completion`: set chore completion.
+
+Responses use JSON with ISO date strings and integer cents. Errors use `{ "error": { "code": "…", "message": "…" } }`. Family data is private and never cacheable. Each collection is permission-filtered; mutations check authorization on the server.
+
+This is an incremental migration. The full wall dashboard and existing admin forms are preserved in `apps/api`; settings, calendar management, family onboarding, allowance actions, media notes, and other legacy mutations have not yet moved into the versioned contract. The new web app links to those screens. The API remains the only workspace with database access.
+
+Native authentication is **not yet implemented**. Auth.js currently uses browser session cookies. Before shipping native clients, implement a system-browser authorization flow with PKCE, verified app links, single-use code exchange, scoped/expiring tokens, and revocation. Do not copy Google refresh tokens, embed OAuth client secrets, or pass session cookies in deep links. See [architecture and migration plan](docs/architecture.md).
+
+## Docker
+
+```sh
 docker compose up -d --build
 ```
 
-The SQLite database lives in the `kinboard-data` named volume (mounted at
-`/app/data`), and migrations run automatically on container start
-(`docker-entrypoint.sh`). Update `KINBOARD_LAT`/`KINBOARD_LON` in `.env` to
-your location for the weather widget (defaults to New York City), and
-`KINBOARD_TIMEZONE` to your IANA timezone (defaults to `America/New_York`) so
-chores/meals/the calendar agree on what day it is - the server's own clock
-runs in UTC regardless of where the household actually is.
-
-## Cloudflare Workers deployment
-
-**Live at https://app.kinboard.xyz** (also reachable at
-https://kinboard.wfinken.workers.dev — attaching a custom domain doesn't
-disable the `workers.dev` one).
-
-An alternative to self-hosting: deploy KinBoard to Cloudflare's free tier
-(Workers + D1). No server, Docker, or Raspberry Pi to maintain — Cloudflare
-runs it. This uses [D1](https://developers.cloudflare.com/d1/) (Cloudflare's
-SQLite-compatible database) instead of a local SQLite file, since Workers
-have no filesystem.
-
-### 1. Prerequisites
-
-```bash
-npm install                    # picks up @astrojs/cloudflare and wrangler
-npx wrangler login              # opens a browser to authorize the CLI
-```
-
-### 2. Create the D1 database
-
-```bash
-npm run cf:db:create
-```
-
-This prints a `database_id`. Open `wrangler.jsonc` and paste it in place of
-`REPLACE_WITH_YOUR_D1_DATABASE_ID` under `d1_databases`.
-
-### 3. Apply migrations to the new database
-
-```bash
-npm run cf:db:migrate:remote
-```
-
-This runs the same SQL files under `./drizzle/` (generated by
-`drizzle-kit generate`) that the Docker/Node build uses — `wrangler.jsonc`
-points D1's migration runner at that folder (`migrations_dir: "drizzle"`)
-instead of duplicating migrations. Whenever you change `src/db/schema.ts` and
-run `npm run db:generate`, re-run this command to apply the new migration to
-D1 too.
-
-### 4. Configure Google OAuth for your Workers domain
-
-Follow [Google OAuth setup](#google-oauth-setup) above, but set the redirect
-URI to match where this will be deployed. The production instance uses:
-
-```
-https://app.kinboard.xyz/api/auth/callback/google
-```
-
-Add one redirect URI per domain the app is actually reachable at — the OAuth
-client can list more than one. If you're forking this for your own
-deployment before attaching a custom domain, use your `workers.dev` URL
-instead: `https://<worker-name>.<your-subdomain>.workers.dev/api/auth/callback/google`.
-
-### 5. Set secrets
-
-`AUTH_SECRET`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` are secrets, not
-plain vars, so they're pushed individually rather than committed to
-`wrangler.jsonc`:
-
-```bash
-npx wrangler secret put AUTH_SECRET          # paste output of: openssl rand -base64 33
-npx wrangler secret put GOOGLE_CLIENT_ID
-npx wrangler secret put GOOGLE_CLIENT_SECRET
-```
-
-The weather widget's location (`KINBOARD_LAT`/`KINBOARD_LON`/`KINBOARD_TEMP_UNIT`)
-and the household's `KINBOARD_TIMEZONE` aren't sensitive — they're already
-set as plain `vars` in `wrangler.jsonc`; edit the values there directly for
-your location.
-
-### 6. Deploy
-
-```bash
-npm run cf:deploy
-```
-
-This builds with the Cloudflare adapter and runs `wrangler deploy`. Re-run it
-for every future update.
-
-### 7. (Optional) Attach a custom domain
-
-The default `<worker-name>.<subdomain>.workers.dev` URL always keeps working.
-To serve from your own domain instead (or as well — production uses
-`app.kinboard.xyz` on top of the `workers.dev` URL), add it from the
-Cloudflare dashboard: **Workers & Pages → kinboard → Settings → Domains &
-Routes → Add → Custom Domain**. Cloudflare provisions the DNS record and TLS
-certificate automatically if the domain's zone is already on your Cloudflare
-account. See [Custom
-Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
-
-Once attached, add the new domain's redirect URI to the Google OAuth client
-(step 4) — sign-in will fail with `redirect_uri_mismatch` on any domain that
-isn't listed there.
-
-### Local development against Cloudflare's runtime
-
-`npm run dev` (the default) still runs the Node build for day-to-day work.
-To test against a local, fully-emulated Workers + D1 environment instead
-(closer to production, no real Cloudflare account needed):
-
-```bash
-cp .dev.vars.example .dev.vars     # fill in AUTH_SECRET at minimum
-npm run cf:db:migrate:local        # applies drizzle/*.sql to a local D1 instance
-npm run cf:dev                     # astro dev --config astro.config.cloudflare.mjs
-```
-
-`npm run cf:dev` uses `@astrojs/cloudflare`'s Vite plugin, which runs your
-actual Worker code against `workerd` (the real Cloudflare runtime, not a
-Node polyfill) with local D1 storage under `.wrangler/`.
-
-### Type-checking the Cloudflare build
-
-`npm run build` / `astro check` type-check against `tsconfig.json`, which
-deliberately excludes `src/db/client.cloudflare.ts` — mixing
-`@cloudflare/workers-types` globals into the same TypeScript project as
-Node's ambient types causes spurious conflicts. Use
-`npm run check:cloudflare` (backed by `tsconfig.cloudflare.json`) to
-type-check the Cloudflare-specific file instead; `npm run build:cloudflare`
-runs this automatically before building.
-
-## Known trade-offs
-
-- `npm audit` reports one moderate, dev-only advisory in an old `esbuild`
-  pulled in transitively by `drizzle-kit`'s config loader. It only affects
-  running `drizzle-kit` locally (not the built app or Docker image) and the
-  only fix is a major `drizzle-kit` downgrade, which isn't worth it for a
-  dev-time-only tool.
-- `wrangler deploy` reports two bindings we never asked for: `env.SESSION`
-  (a KV namespace) and `env.IMAGES`. `@astrojs/cloudflare` provisions these
-  automatically for Astro's own built-in sessions/image-processing features;
-  KinBoard doesn't use either, so they're inert, but they'll show up in the
-  Cloudflare dashboard.
+Docker reads `apps/api/.env`, builds both workspaces, and serves from port 4321. The existing `kinboard-data` volume remains mounted at `/app/data`, with migrations applied on startup. Docker packaging has been updated for the monorepo; use the Node/Cloudflare build checks separately from a Docker runtime check.

@@ -4,7 +4,7 @@ services:
     ports:
       - '4321:4321'
     env_file:
-      - .env
+      - apps/api/.env
     environment:
       DATABASE_URL: file:./data/kinboard.db
     volumes:

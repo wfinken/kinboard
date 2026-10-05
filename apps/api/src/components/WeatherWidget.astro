@@ -1,0 +1,43 @@
+---
+import { fetchWeather, describeWeatherCode } from '../lib/weather';
+import { parseDateKey } from '../lib/dates';
+
+const weather = await fetchWeather();
+const imperial = process.env.KINBOARD_TEMP_UNIT === 'fahrenheit';
+const unit = imperial ? '°F' : '°C';
+const windUnit = imperial ? 'mph' : 'km/h';
+---
+
+<div class="weather-widget">
+  {
+    weather ? (
+      <>
+        <div class="weather-current">
+          <span class="weather-icon" aria-hidden="true">{describeWeatherCode(weather.currentCode).icon}</span>
+          <div class="weather-current-copy">
+            <div class="weather-temperature">{weather.currentTemp}<span>{unit}</span></div>
+            <div class="weather-condition">{describeWeatherCode(weather.currentCode).label}</div>
+            <div class="weather-feels-like">Feels like {weather.feelsLike}{unit}</div>
+          </div>
+          <div class="weather-range"><span>H <strong>{weather.today.high}°</strong></span><span>L <strong>{weather.today.low}°</strong></span></div>
+        </div>
+        <dl class="weather-details">
+          <div><dt>Humidity</dt><dd>{weather.humidity}%</dd></div>
+          <div><dt>Wind</dt><dd>{weather.windSpeed} <span>{windUnit}</span></dd></div>
+          <div><dt>Rain chance</dt><dd>{weather.today.precipChance}%</dd></div>
+        </dl>
+        <div class="weather-forecast" aria-label="Three-day forecast">
+          {weather.forecast.map((day) => (
+            <div class="weather-forecast-day">
+              <span class="weather-forecast-label">{parseDateKey(day.date).toLocaleDateString([], { weekday: 'short' })}</span>
+              <span class="weather-forecast-icon" role="img" aria-label={describeWeatherCode(day.code).label}>{describeWeatherCode(day.code).icon}</span>
+              <span class="weather-forecast-temperatures"><strong>{day.high}°</strong> <span>{day.low}°</span></span>
+            </div>
+          ))}
+        </div>
+      </>
+    ) : (
+      <p class="text-fg-subtle">Weather unavailable</p>
+    )
+  }
+</div>

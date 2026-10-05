@@ -29,3 +29,8 @@ npm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .DS_Store
+
+# Generated static web assets, staged into the API deployment
+apps/api/public/app/
+
+apps/api/public/admin/
