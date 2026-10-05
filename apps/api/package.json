@@ -17,7 +17,7 @@
     "build:cloudflare": "npm run check:cloudflare && astro build --config astro.config.cloudflare.mjs",
     "check:cloudflare:api": "wrangler types --config wrangler.api.jsonc && KINBOARD_WRANGLER_CONFIG=./wrangler.api.jsonc astro check --tsconfig tsconfig.cloudflare.json",
     "build:cloudflare:api": "npm run check:cloudflare:api && KINBOARD_WRANGLER_CONFIG=./wrangler.api.jsonc astro build --config astro.config.cloudflare.mjs",
-    "cf:deploy": "npm run build:cloudflare && wrangler deploy dist/server/entry.mjs --assets dist/client --name kinboard --no-bundle",
+    "cf:deploy": "npm run build:cloudflare && wrangler deploy dist/server/entry.mjs --assets dist/client --config wrangler.jsonc --name kinboard --no-bundle",
     "cf:deploy:api": "npm run build:cloudflare:api && wrangler deploy dist/server/entry.mjs --assets dist/client --config wrangler.api.jsonc --name kinboard-api --no-bundle",
     "cf:db:create": "wrangler d1 create kinboard",
     "cf:db:migrate:local": "wrangler d1 migrations apply kinboard --local",

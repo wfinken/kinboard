@@ -20,7 +20,7 @@
     "cf:dev": "npm run build:web && npm run cf:dev --workspace @kinboard/api",
     "build:cloudflare": "npm run build:web:production && npm run build:cloudflare --workspace @kinboard/api",
     "build:cloudflare:api": "npm run build:web:production && npm run build:cloudflare:api --workspace @kinboard/api",
-    "cf:deploy": "npm run build:cloudflare && npm exec --workspace @kinboard/api -- wrangler deploy dist/server/entry.mjs --assets dist/client --name kinboard --no-bundle",
+    "cf:deploy": "npm run build:cloudflare && npm exec --workspace @kinboard/api -- wrangler deploy dist/server/entry.mjs --assets dist/client --config wrangler.jsonc --name kinboard --no-bundle",
     "cf:deploy:api": "npm run build:cloudflare:api && npm exec --workspace @kinboard/api -- wrangler deploy dist/server/entry.mjs --assets dist/client --config wrangler.api.jsonc --name kinboard-api --no-bundle",
     "cf:db:create": "npm run cf:db:create --workspace @kinboard/api",
     "cf:db:migrate:local": "npm run cf:db:migrate:local --workspace @kinboard/api",
