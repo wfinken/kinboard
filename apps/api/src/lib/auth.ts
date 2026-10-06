@@ -92,9 +92,12 @@ export const calendarEventsAuthConfig: AuthConfig = {
 /** Reads the current session by replaying the request's cookies against
  *  Auth.js's own /session endpoint — the standard way to check auth state
  *  from framework code when there's no official Astro integration. */
-export async function getSession(request: Request): Promise<Session | null> {
+export async function getSession(request: Request, onSetCookie?: (cookie: string) => void): Promise<Session | null> {
   const url = new URL('/api/auth/session', request.url);
   const response = await Auth(new Request(url, { headers: request.headers }), authConfig);
+  const setCookies = response.headers.getSetCookie?.() ?? [response.headers.get('set-cookie') ?? ''];
+  const refreshedCookie = setCookies.find((cookie) => /^(?:__Secure-)?authjs\.session-token=/.test(cookie));
+  if (refreshedCookie) onSetCookie?.(refreshedCookie);
 
   const session = (await response.json().catch(() => null)) as Session | null;
   if (!session || Object.keys(session).length === 0) return null;

@@ -28,5 +28,6 @@
     "KINBOARD_TIMEZONE": "America/New_York",
     "KINBOARD_APP_ORIGIN": "https://app.kinboard.xyz",
     "AUTH_COOKIE_DOMAIN": "kinboard.xyz"
-  }
+  },
+  "routes": [{ "pattern": "app.kinboard.xyz", "custom_domain": true }]
 }

@@ -17,6 +17,7 @@ function addCors(response: Response, origin: string) {
 }
 const appMiddleware = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
+  const captureSessionCookie = (cookie: string) => { context.locals.authSessionCookie = cookie; };
   const isV1 = isVersionedApiPath(pathname);
   const jsonForm = context.request.method === 'POST' &&
     (pathname.startsWith('/api/admin/') || pathname === '/api/family/invite') &&
@@ -33,8 +34,16 @@ const appMiddleware = defineMiddleware(async (context, next) => {
     destination.pathname = '/admin/calendars/';
     return context.redirect(destination.toString(), 307);
   }
-  // The static shell contains no private data. Every data request authenticates.
-  if (pathname === '/app' || pathname.startsWith('/app/') || pathname === '/admin' || pathname.startsWith('/admin/')) return next();
+  // Static app shells contain no private data. Still refresh Auth.js's
+  // session cookie here so old host-only cookies migrate to the parent
+  // domain needed by credentialed requests to api.kinboard.xyz.
+  const adminShell = /^\/admin\/(calendars|meals|notes|layout|chores|allowance|family|permissions|account)\/?$/.test(pathname);
+  if (pathname === '/app' || pathname === '/app/' || pathname === '/admin' || pathname === '/admin/' || adminShell) {
+    try { await getSession(context.request, captureSessionCookie); } catch { /* Keep static shells available during auth outages. */ }
+    return next();
+  }
+  // Bundled files do not need session lookups.
+  if (pathname.startsWith('/app/') || pathname.startsWith('/admin/')) return next();
   if (jsonApi && !['GET', 'HEAD'].includes(context.request.method)) {
     if (origin && origin !== context.url.origin && !(isV1 && origin === appOrigin)) return apiError(403, 'invalid_origin', 'Cross-origin writes are not allowed.');
     if (isV1 && context.request.method !== 'DELETE' && !context.request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return apiError(415, 'unsupported_media_type', 'Use application/json.');
@@ -58,7 +67,7 @@ const appMiddleware = defineMiddleware(async (context, next) => {
   const isProtectedRoute = !isLoginRoute && !isAuthRoute;
 
   if (isProtectedRoute) {
-    const session = await getSession(context.request);
+    const session = await getSession(context.request, captureSessionCookie);
     if (!session?.user) {
       if (jsonApi) return apiError(401, 'unauthorized', 'Sign in to continue.');
       if (pathname.startsWith('/api/') && !isFamilySetup) {
@@ -81,7 +90,7 @@ const appMiddleware = defineMiddleware(async (context, next) => {
   }
 
   if (isLoginRoute) {
-    const session = await getSession(context.request);
+    const session = await getSession(context.request, captureSessionCookie);
     if (session?.user) return context.redirect('/');
   }
 
@@ -114,9 +123,19 @@ const appMiddleware = defineMiddleware(async (context, next) => {
 
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  const response = await appMiddleware(context, next);
+  let response = await appMiddleware(context, next);
   const origin = context.request.headers.get('origin');
   if (!response) return next();
+  if (context.locals.authSessionCookie) {
+    const headers = new Headers(response.headers);
+    headers.append('Set-Cookie', context.locals.authSessionCookie);
+    if (context.url.hostname === 'app.kinboard.xyz') {
+      // Clear a stale app-only cookie after Auth.js refreshes its
+      // parent-domain equivalent on this response.
+      headers.append('Set-Cookie', '__Secure-authjs.session-token=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax');
+    }
+    response = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  }
   if (isVersionedApiPath(context.url.pathname) && origin && origin === appOrigin) return addCors(response, origin);
   return response;
 });

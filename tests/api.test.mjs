@@ -31,7 +31,7 @@ before(async () => {
   socket.listen(0, '127.0.0.1'); await once(socket, 'listening');
   const port = socket.address().port; await new Promise(resolve => socket.close(resolve));
   base = `http://127.0.0.1:${port}`;
-  server = spawn(process.execPath, ['apps/api/dist/server/entry.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, DATABASE_URL: url, AUTH_SECRET: 'integration-test-secret-not-for-production', GOOGLE_CLIENT_ID: 'test', GOOGLE_CLIENT_SECRET: 'test', KINBOARD_APP_ORIGIN: 'https://app.kinboard.xyz', HOST: '127.0.0.1', PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
+  server = spawn(process.execPath, ['apps/api/dist/server/entry.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, DATABASE_URL: url, AUTH_SECRET: 'integration-test-secret-not-for-production', GOOGLE_CLIENT_ID: 'test', GOOGLE_CLIENT_SECRET: 'test', KINBOARD_APP_ORIGIN: 'https://app.kinboard.xyz', AUTH_COOKIE_DOMAIN: 'kinboard.xyz', HOST: '127.0.0.1', PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stdout.on('data', chunk => { output += chunk; }); server.stderr.on('data', chunk => { output += chunk; });
   for (let i = 0; i < 100; i++) {
     if (server.exitCode !== null) throw new Error(output);
@@ -62,6 +62,7 @@ test('dashboard scopes every collection to the signed-in family', async () => {
   const response = await request('/api/v1/dashboard');
   assert.equal(response.status, 200, await response.clone().text());
   assert.match(response.headers.get('cache-control'), /no-store/);
+  assert.match(response.headers.get('set-cookie') ?? '', /Domain=kinboard\.xyz/);
   const body = await response.json();
   assert.deepEqual(body.chores.map(c => c.id), ['our-chore']);
   assert.deepEqual(body.notes.map(n => n.id), ['our-note']);
