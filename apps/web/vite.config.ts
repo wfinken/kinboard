@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
 
 const backend = 'http://localhost:4321';
@@ -6,8 +7,7 @@ const apiBase = process.env.KINBOARD_PRODUCTION_API === 'true' ? 'https://api.ki
 export default defineConfig({
   base: '/app/',
   define: { __KINBOARD_API_BASE_URL__: JSON.stringify(apiBase) },
-  server: { port: 5173, proxy: { '/api': backend } },
-  plugins: [{
+  plugins: [vue(), {
     name: 'kinboard-backend-pages',
     configureServer(server) {
       // Keep OAuth on its registered origin. API reads use the dev proxy;
@@ -32,4 +32,5 @@ export default defineConfig({
       });
     },
   }],
+  server: { port: 5173, proxy: { '/api': backend } },
 });

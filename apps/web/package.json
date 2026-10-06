@@ -4,15 +4,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
-    "check": "tsc --noEmit"
+    "build": "vue-tsc --noEmit && vite build",
+    "check": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@kinboard/contracts": "*",
-    "qrcode-generator": "^2.0.4"
+    "qrcode-generator": "^2.0.4",
+    "vue": "^3.5.43"
   },
   "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.9",
+    "typescript": "^6.0.3",
     "vite": "8.3.1",
-    "typescript": "^6.0.3"
+    "vue-tsc": "^3.3.12"
   }
 }

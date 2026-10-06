@@ -8,7 +8,7 @@ export interface Viewer { id: string; name: string | null; image: string | null 
 export interface Member { id: string; name: string; color: string; status: string }
 export interface Chore {
   id: string; title: string; memberId: string | null; frequency: 'daily' | 'weekly';
-  completed: boolean; bounty: boolean; rewardType: 'xp' | 'allowance'; rewardPoints: number; rewardCents: number;
+  completed: boolean; bounty: boolean; allowanceEnabled: boolean; maxBidCents: number; rewardType: 'xp' | 'allowance'; rewardPoints: number; rewardCents: number;
 }
 export interface Note { id: string; content: string; color: string; authorName: string | null; createdAt: string }
 export interface Meal { id: string; date: string; mealType: 'breakfast' | 'lunch' | 'dinner'; description: string }
@@ -17,8 +17,11 @@ export interface Dashboard {
   user: Viewer;
   family: { id: string; name: string };
   permissions: Grants;
-  settings: { theme: 'light' | 'dark'; timezone: string; refreshSeconds: number };
+  settings: { theme: 'light' | 'dark'; timezone: string; refreshSeconds: number; widgetOrder: string[]; widgetSizes: Record<string, string> };
   members: Member[]; chores: Chore[]; meals: Meal[]; notes: Note[]; events: CalendarEvent[];
+  weather: null | { currentTemp: number; currentCode: number; feelsLike: number; humidity: number; windSpeed: number; today: { high: number; low: number; precipChance: number }; forecast: Array<{ date: string; high: number; low: number; code: number }> };
+  allowance: { balanceCents: number; bids: Array<{ id: string; choreId: string; memberId: string; amountCents: number; status: 'pending' | 'approved' | 'rejected' | 'paid' }> };
+  latest: Array<{ kind: string; title: string; detail: string; at: string; icon: string }>;
 }
 export interface CreateNote { content: string; color?: string }
 export interface CompleteChore { completed: boolean; memberId?: string }

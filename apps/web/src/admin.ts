@@ -1,8 +1,9 @@
 import { ADMIN_SECTIONS, WIDGETS, ApiClientError, createClient, type AdminSection, type AdminPage, type AdminContext, type AdminMember, type Feature } from '@kinboard/contracts';
 import './admin.css';
+import { displayTimezone } from './timezone';
 
 const api = createClient(__KINBOARD_API_BASE_URL__);
-const root = document.querySelector<HTMLDivElement>('#app')!;
+const root = document.querySelector<HTMLDivElement>('#kinboard-page')!;
 const titles: Record<AdminSection, string> = { overview: 'Overview', calendars: 'Calendars', meals: 'Meals', notes: 'Bulletin board', layout: 'Display', chores: 'Chores', allowance: 'Allowance', family: 'Family', permissions: 'Permissions', account: 'Account' };
 const features: Partial<Record<AdminSection, Feature>> = { calendars: 'calendars', meals: 'meals', notes: 'notes', chores: 'chores', allowance: 'allowance', family: 'family' };
 const widgetLabels = { clock: 'Clock', weather: 'Weather', latest: 'Latest activity', calendar: 'Calendar', meals: 'Meal plan', chores: 'Chores', availability: 'Availability', allowance: 'Allowance', notes: 'Bulletin board' };
@@ -25,6 +26,8 @@ const timezoneField = (value: string) => select('Household time zone', 'timezone
 const visible = (page: AdminContext, section: AdminSection) => section === 'permissions' ? page.owner : !features[section] || page.permissions[features[section]!].read;
 let busy = false;
 let section: AdminSection = 'overview';
+let active = false;
+let loadGeneration = 0;
 
 function overview(page: AdminPage<'overview'>) {
   return `<div class="stats">${page.data.stats.map(s => `<div><strong>${escape(s.value)}</strong><span>${escape(s.label)}</span></div>`).join('')}</div>` +
@@ -110,8 +113,9 @@ function content(page: AdminPage): string {
 function render(page: AdminPage) {
   document.title = `${titles[page.section]} · KinBoard`;
   document.documentElement.dataset.theme = page.settings.theme;
-  root.innerHTML = `<div class="admin-shell"><aside class="admin-sidebar"><a class="brand" href="/app/"><b>K.</b> KinBoard</a><p class="eyebrow">${escape(page.family.name)}</p><nav aria-label="Family settings">${ADMIN_SECTIONS.filter(s => visible(page, s)).map(s => `<a href="${path(s)}" ${s === page.section ? 'aria-current="page"' : ''}>${titles[s]}</a>`).join('')}</nav><a class="text-link" href="/app/">← Back to family board</a><small>${escape(page.user.email)}</small><a class="text-link" href="/api/auth/signout">Sign out</a></aside><main class="admin-main"><div class="admin-heading"><div><p class="eyebrow">FAMILY SETTINGS</p><h1>${titles[page.section]}</h1></div><a href="/">Open wall display ↗</a></div><div id="admin-notice" role="status" aria-live="polite" tabindex="-1"></div>${content(page)}</main></div>`;
+  root.innerHTML = `<div class="family-layout admin-layout"><aside class="family-sidebar"><a class="brand" href="/app/" aria-label="KinBoard home"><b>K.</b><span>KinBoard<small>YOUR FAMILY SPACE</small></span></a><div class="family-switcher"><span class="family-switcher-icon">⌂</span><span><small>YOUR HOUSEHOLD</small><strong>${escape(page.family.name)}</strong></span><span class="switcher-chevron">⌄</span></div><p class="side-label">FAMILY SETTINGS</p><nav class="family-nav admin-navigation" aria-label="Family settings">${ADMIN_SECTIONS.filter(s => visible(page, s)).map(s => `<a href="${path(s)}" class="${s === page.section ? 'active' : ''}" ${s === page.section ? 'aria-current="page"' : ''}>${titles[s]}</a>`).join('')}</nav><div class="sidebar-bottom"><a href="/app/">▦ <span>Back to family board</span></a><a href="/api/auth/signout">↪ <span>Sign out</span></a><small>${escape(page.user.email)}</small></div></aside><main class="family-main"><header class="family-topbar"><div class="mobile-brand"><b>K.</b> KinBoard</div><div class="topbar-date"><span>Today</span><strong>${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', ...(displayTimezone(page.settings.timezone) ? { timeZone: displayTimezone(page.settings.timezone) } : {}) })}</strong></div><div class="topbar-actions"><a href="/" class="wall-link">Open wall display <span>↗</span></a><a href="/admin/account/" class="user-avatar" aria-label="Account settings">${escape((page.user.name || page.user.email || 'K').slice(0, 1).toUpperCase())}</a></div></header><div class="admin-main"><div class="admin-heading"><div><p class="eyebrow">FAMILY SETTINGS</p><h1>${titles[page.section]}</h1></div><a href="/">Open wall display ↗</a></div><div id="admin-notice" role="status" aria-live="polite" tabindex="-1"></div>${content(page)}</div></main></div>`;
   if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+  window.dispatchEvent(new Event('kinboard:ready'));
 }
 function notice(message: string, error = false) {
   const node = root.querySelector<HTMLElement>('#admin-notice');
@@ -123,14 +127,19 @@ function gate(error: unknown) {
   const forbidden = error instanceof ApiClientError && error.status === 403;
   const callback = encodeURIComponent(location.pathname + location.search);
   root.innerHTML = `<main class="gate"><a class="brand" href="/app/">KinBoard</a><h1>${auth ? 'Welcome home.' : family ? 'Find your people.' : forbidden ? 'This page is restricted.' : 'Couldn’t load settings.'}</h1><p>${escape(error instanceof Error ? error.message : 'Please try again.')}</p>${auth || family ? `<a class="primary" href="${auth ? `/login?callbackUrl=${callback}` : '/welcome'}">${auth ? 'Sign in with Google' : 'Set up your family'}</a>` : `<a class="primary" href="/admin/">Back to overview</a> <button data-retry>Try again</button>`}</main>`;
+  window.dispatchEvent(new Event('kinboard:ready'));
 }
 async function load(message?: string) {
+  if (!active) return;
+  const generation = ++loadGeneration;
   try {
-    render(await api.admin(section));
+    const page = await api.admin(section);
+    if (!active || generation !== loadGeneration) return;
+    render(page);
     const query = new URLSearchParams(location.search);
     const error = query.get('error') || query.get('eventError');
     if (message || error) notice(message || error!, Boolean(error));
-  } catch (error) { gate(error); }
+  } catch (error) { if (active && generation === loadGeneration) gate(error); }
 }
 async function submit(form: HTMLFormElement) {
   if (busy) return;
@@ -142,6 +151,7 @@ async function submit(form: HTMLFormElement) {
   buttons.forEach(b => b.disabled = true);
   try { const result = await api.adminForm(new URL(form.action).pathname, body); await load(result.message); }
   catch (error) {
+    if (!active) return;
     if (error instanceof ApiClientError && error.status === 401) gate(error);
     else notice(error instanceof Error ? error.message : 'Could not save. Your entries are still here.', true);
   } finally { busy = false; buttons.forEach(b => b.disabled = false); }
@@ -157,14 +167,17 @@ async function invite() {
     const qr = qrcode(0, 'M'); qr.addData(invitation.url); qr.make();
     const output = root.querySelector('#invite-result');
     if (output) output.innerHTML = `<div class="invite-qr" role="img" aria-label="Family invitation QR code">${qr.createSvgTag(5, 4)}</div><p><a href="${escape(invitation.url)}">${escape(invitation.url)}</a></p><p>Code: <strong>${escape(invitation.token)}</strong> · Expires ${escape(new Date(invitation.expiresAt).toLocaleTimeString())}</p><a href="${escape(invitation.directUrl)}">Direct invite link</a>`;
-  } catch (error) { notice(error instanceof Error ? error.message : 'Could not create invite.', true); }
+  } catch (error) { if (active) notice(error instanceof Error ? error.message : 'Could not create invite.', true); }
   finally { busy = false; if (button) button.disabled = false; }
 }
 export async function startAdmin() {
+  active = true;
   const requested = location.pathname.replace(/^\/admin\/?/, '').replace(/\/$/, '') || 'overview';
   if (!ADMIN_SECTIONS.includes(requested as AdminSection)) { gate(new Error('Page not found.')); return; }
   section = requested as AdminSection;
   document.body.classList.add('admin-body');
+  if (!root.dataset.bound) {
+  root.dataset.bound = 'true';
   root.addEventListener('submit', event => {
     if (event.target instanceof HTMLFormElement && event.target.matches('[data-admin-form]')) { event.preventDefault(); void submit(event.target); }
   });
@@ -184,5 +197,7 @@ export async function startAdmin() {
       control.form?.querySelectorAll<HTMLElement>('[data-allowance-field]').forEach(el => el.hidden = control.value !== 'allowance');
     }
   });
+  }
   await load();
 }
+export function stopAdmin() { active = false; loadGeneration++; }

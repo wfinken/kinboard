@@ -5,7 +5,7 @@ A family dashboard with an Astro API, a lightweight web client, and room for nat
 | Workspace | Responsibility |
 | --- | --- |
 | `apps/api` | Astro API, Auth.js Google login, authorization, Drizzle, D1/SQLite, and existing wall/login routes |
-| `apps/web` | Static Vite + TypeScript web app; no UI framework, database access, or secrets |
+| `apps/web` | Static Vue + Vite portal; no database access or secrets |
 | `packages/contracts` | Transport types, typed web client, and [OpenAPI contract](packages/contracts/openapi.json) |
 | `apps/ios`, `apps/android` | Documented homes for future native projects; no native apps implemented yet |
 
@@ -21,7 +21,7 @@ npm run db:migrate
 npm run dev
 ```
 
-Open `http://localhost:4321/app/` for the new API-driven app, `/` for the existing wall dashboard, or `/admin` for all management features. Sign-in is required to access family data. The static `/app/` shell contains no private information.
+Open `http://localhost:4321/app/` for the Vue-powered family portal, `/` for the existing wall dashboard, or `/admin` for its management features. Dashboard and admin sections share a Vue shell and client-side navigation; sign-in is required to access family data. The static `/app/` shell contains no private information.
 
 `npm run dev` builds and stages the web app before starting Astro. For frontend hot reload, keep Astro running and start `npm run dev:web` in another terminal; open `http://localhost:5173/app/`. Its `/api` requests proxy to Astro; login, setup, and admin pages redirect to port 4321 so OAuth stays on its registered origin. After signing in, return to port 5173 (localhost cookies are shared across ports). Register `http://localhost:4321/api/auth/callback/google` in Google Cloud.
 
